@@ -1,0 +1,11 @@
+.DS_Store
+.idea
+.tmp
+.vscode
+.vscode/launch.json
+dist
+dist/nodes/Creatio/*.js
+node_modules
+npm-debug.log*
+tmp
+yarn.lock
