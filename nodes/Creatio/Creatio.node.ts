@@ -33,11 +33,6 @@ export class Creatio implements INodeType {
 				maxRedirects: 5,
 			});
 		} catch (error: any) {
-			console.error('Creatio login failed (authenticateAndGetCookies):', {
-				status: error.response?.status,
-				headers: error.response?.headers,
-				body: error.response?.body,
-			});
 			throw new NodeOperationError(
 				context.getNode(),
 				`Failed to authenticate with Creatio: ${error.message}`,
