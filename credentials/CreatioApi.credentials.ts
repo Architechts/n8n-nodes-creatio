@@ -1,4 +1,4 @@
-import { Icon, IAuthenticateGeneric, ICredentialTestRequest, ICredentialType, INodeProperties } from 'n8n-workflow';
+import { Icon, ICredentialTestRequest, ICredentialType, INodeProperties } from 'n8n-workflow';
 
 export class CreatioApi implements ICredentialType {
 	displayName = 'Creatio API';
