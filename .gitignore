@@ -9,3 +9,5 @@ node_modules
 npm-debug.log*
 tmp
 yarn.lock
+.vs
+/.vs/slnx.sqlite
