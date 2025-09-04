@@ -1,4 +1,4 @@
-import { Icon, IAuthenticateGeneric, ICredentialType, INodeProperties } from 'n8n-workflow';
+import { Icon, IAuthenticateGeneric, ICredentialTestRequest, ICredentialType, INodeProperties } from 'n8n-workflow';
 
 export class CreatioApi implements ICredentialType {
 	displayName = 'Creatio API';
@@ -29,14 +29,21 @@ export class CreatioApi implements ICredentialType {
 			default: '',
 		},
 	];
-	authenticate: IAuthenticateGeneric = {
-		type: 'generic',
-		properties: {
+	test: ICredentialTestRequest = {
+		request: {
+			baseURL: '={{$credentials.creatioUrl}}',
+			url: '/ServiceModel/AuthService.svc/Login',
+			method: 'POST',
 			headers: {
 				Accept: 'application/json',
 				'Content-Type': 'application/json',
 				ForceUseSession: 'true',
 			},
+			body: {
+				UserName: '={{$credentials.username}}',
+				UserPassword: '={{$credentials.password}}',
+			},
+			json: true,
 		},
 	};
 }

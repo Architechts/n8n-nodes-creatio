@@ -1,19 +1,22 @@
 {
   "name": "n8n-nodes-creatio",
-  "version": "0.1.0",
-  "description": "n8n node for Creatio integration",
+  "version": "0.1.1",
+  "description": "Connect n8n to Creatio CRM platform. Create, read, update, and delete records in any Creatio entity with dynamic field selection and OData filtering.",
   "keywords": [
-    "n8n-community-node-package"
+    "n8n-community-node-package",
+    "creatio",
+    "architechts",
+    "crm"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/bohdaink/n8n-nodes-creatio",
+  "homepage": "https://github.com/Architechts/n8n-nodes-creatio",
   "author": {
-    "name": "example",
-    "email": "example@example.com"
+    "name": "Bohdain Kroes",
+    "email": "bohdain.kroes@architechts.nl"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/bohdaink/n8n-nodes-creatio.git"
+    "url": "https://github.com/Architechts/n8n-nodes-creatio"
   },
   "engines": {
     "node": ">=18.10",
@@ -34,12 +37,10 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [
-      "dist/credentials/CreatioApi.credentials.js",
-      "dist/credentials/CreatioV2Api.credentials.js"
+      "dist/credentials/CreatioApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/Creatio/Creatio.node.js",
-      "dist/nodes/CreatioV2/Creatiov2.node.js"
+      "dist/nodes/Creatio/Creatio.node.js"
     ]
   },
   "devDependencies": {
@@ -54,8 +55,6 @@
     "n8n-workflow": "*"
   },
   "dependencies": {
-    "console": "^0.7.2",
-    "n8n-workflow": "*",
-    "sqlite3": "^5.1.7"
+    "n8n-workflow": "*"
   }
 }
