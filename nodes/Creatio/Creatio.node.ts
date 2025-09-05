@@ -186,6 +186,12 @@ export class Creatio implements INodeType {
 						value: 'PATCH',
 						action: 'Update a record',
 					},
+					{
+						name: 'DELETE',
+						description: 'Delete a Record permanently',
+						value: 'DELETE',
+						action: 'Delete a Record permanently',
+					},
 				],
 				default: 'GET',
 			},
@@ -265,7 +271,7 @@ export class Creatio implements INodeType {
 				description: 'Resource ID',
 				displayOptions: {
 					show: {
-						operation: ['PATCH'],
+						operation: ['PATCH', "DELETE"],
 					},
 				},
 			},
@@ -395,6 +401,42 @@ export class Creatio implements INodeType {
 						body: requestBody,
 						json: true,
 					});
+					break;
+				}
+				case 'DELETE': {
+					const cookieHeader = [
+						sessionIdCookie?.split(';')[0],
+						authCookie?.split(';')[0],
+						csrfCookie?.split(';')[0],
+						bpmLoader?.split(';')[0],
+						userType
+					].filter(Boolean).join('; ');
+					const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
+					const subpath = this.getNodeParameter('subpath', i) as string;
+					const id = this.getNodeParameter('id', i, '') as string;
+					const requestBody = this.getNodeParameter('body', i) as object;
+					let url = `${creatioUrl}/0/odata/${subpath}`;
+					if (id) {
+						url = `${creatioUrl}/0/odata/${subpath}(${id})`;
+					}
+					response = await this.helpers.request({
+						method: 'DELETE',
+						url,
+						headers: {
+							Accept: '*/*',
+							'Content-Type': 'application/json',
+							Cookie: cookieHeader,
+							BPMCSRF: csrfToken,
+						},
+						body: requestBody,
+						json: true,
+					});
+
+					// Return a meaningfull message after delete. 
+					if (response === '') {
+						response = { "deleted": true };
+					}
+
 					break;
 				}
 			}
