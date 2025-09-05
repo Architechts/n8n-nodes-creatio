@@ -169,16 +169,16 @@ export class Creatio implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
+						name: 'DELETE',
+						description: 'Delete a record permanently',
+						value: 'DELETE',
+						action: 'Delete a record permanently',
+					},
+					{
 						name: 'GET',
 						description: 'Gets record',
 						value: 'GET',
 						action: 'Get one or more records',
-					},
-					{
-						name: 'POST',
-						description: 'Create record',
-						value: 'POST',
-						action: 'Create a record',
 					},
 					{
 						name: 'PATCH',
@@ -187,11 +187,17 @@ export class Creatio implements INodeType {
 						action: 'Update a record',
 					},
 					{
-						name: 'DELETE',
-						description: 'Delete a record permanently',
-						value: 'DELETE',
-						action: 'Delete a record permanently',
+						name: 'POST',
+						description: 'Create record',
+						value: 'POST',
+						action: 'Create a record',
 					},
+					{
+						name: 'TABLES',
+						description: 'Gets Tables',
+						value: 'TABLES',
+						action: 'Get tablenames',
+					}			
 				],
 				default: 'GET',
 			},
@@ -345,6 +351,33 @@ export class Creatio implements INodeType {
 						},
 						json: true,
 					});
+					
+					if (!subpath && response.value) {
+						response = response.value.map((item: any) => ({ tableName: item.name }));
+					}
+					
+					break;
+				}
+				case 'TABLES': {
+					let url = `${creatioUrl}/0/odata/`;
+					const cookieHeader = [authCookie?.split(';')[0], csrfCookie?.split(';')[0], bpmLoader?.split(';')[0], userType]
+						.filter(Boolean)
+						.join('; ');
+					const csrfToken = csrfCookie?.split('=')[1];
+					response = await this.helpers.request({
+						method: 'GET',
+						url,
+						headers: {
+							Accept: 'application/json',
+							'Content-Type': 'application/json',
+							Cookie: cookieHeader,
+							BPMCSRF: csrfToken,
+						},
+						json: true,
+					});
+
+					response = response.value.map((item: any) => ({ tableName: item.name }));
+					
 					break;
 				}
 				case 'POST': {
