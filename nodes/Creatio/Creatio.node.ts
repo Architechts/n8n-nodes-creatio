@@ -188,9 +188,9 @@ export class Creatio implements INodeType {
 					},
 					{
 						name: 'DELETE',
-						description: 'Delete a Record permanently',
+						description: 'Delete a record permanently',
 						value: 'DELETE',
-						action: 'Delete a Record permanently',
+						action: 'Delete a record permanently',
 					},
 				],
 				default: 'GET',

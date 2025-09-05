@@ -39,6 +39,10 @@ Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes
 - Enter ID of record to update
 - Enter JSON with the data you want to update
 
+#### DELETE
+- Choose your Creatio subPath from the dropdown menu or add manually using an Expression
+- Enter ID of record to delete
+
 
 **Example use cases:**
 - Add new leads or contacts automatically
@@ -49,6 +53,7 @@ Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes
 ### Authentication
 
 Authentication is required. Store your Creatio API credentials securely in n8n before using the node.
+It is possible that the selected user is not allowed to delete records.
 
 ### Input
 
