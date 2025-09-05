@@ -18,6 +18,7 @@ export class CreatioApi implements ICredentialType {
 			name: 'username',
 			type: 'string',
 			default: '',
+			hint: 'This is usually not the email address, but the username you use to log in to Creatio',
 		},
 		{
 			displayName: 'Password',

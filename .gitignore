@@ -11,3 +11,4 @@ tmp
 yarn.lock
 .vs
 /.vs/slnx.sqlite
+n8n-nodes-creatio*
