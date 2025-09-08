@@ -7,6 +7,27 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 
+import {
+	buildInputSchemaField,
+	buildJsonSchemaExampleField,
+	buildJsonSchemaExampleNotice,
+	schemaTypeField,
+} from '../../utils/Descriptions';
+
+
+const jsonSchemaExampleField = buildJsonSchemaExampleField({
+	showExtraProps: { specifyInputSchema: [true] },
+});
+
+const jsonSchemaExampleNotice = buildJsonSchemaExampleNotice({
+	showExtraProps: {
+		specifyInputSchema: [true],
+		'@version': [{ _cnd: { gte: 1.3 } }],
+	},
+});
+
+const jsonSchemaField = buildInputSchemaField({ showExtraProps: { specifyInputSchema: [true] } });
+
 export class Creatio implements INodeType {
 	// Extracted authentication helper as a static method
 	static async authenticateAndGetCookies(context: ILoadOptionsFunctions | IExecuteFunctions, credentials: any) {
@@ -294,6 +315,21 @@ export class Creatio implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'Specify Input Schema',
+				name: 'specifyInputSchema',
+				type: 'boolean',
+				description:
+					'Whether to specify the schema for the function. This would require the LLM to provide the input in the correct format and would validate it against the schema.',
+				noDataExpression: true,
+				default: false,
+			},
+			{
+				...schemaTypeField, displayOptions: { show: { specifyInputSchema: [true] } }
+			},
+			jsonSchemaExampleField,
+			jsonSchemaExampleNotice,
+			jsonSchemaField,
 		],
 	};
 
@@ -312,165 +348,173 @@ export class Creatio implements INodeType {
 				creatioUrl,
 			} = await Creatio.authenticateAndGetCookies(this, credentials);
 			let response;
-			switch (operation) {
-				case 'GET': {
-					const subpath = this.getNodeParameter('subpath', i) as string;
-					const select = this.getNodeParameter('select', i) as string[];
-					const top = this.getNodeParameter('top', i) as number;
-					const filter = this.getNodeParameter('filter', i) as string;
-					const expand = this.getNodeParameter('expand', i) as string;
-					let url = `${creatioUrl}/0/odata/${subpath}`;
-					const queryParams: string[] = [];
-					if (select && select.length > 0) {
-						queryParams.push(`$select=${encodeURIComponent(select.join(','))}`);
+			try {
+				switch (operation) {
+					case 'GET': {
+						const subpath = this.getNodeParameter('subpath', i) as string;
+						const select = this.getNodeParameter('select', i) as string[];
+						const top = this.getNodeParameter('top', i) as number;
+						const filter = this.getNodeParameter('filter', i) as string;
+						const expand = this.getNodeParameter('expand', i) as string;
+						let url = `${creatioUrl}/0/odata/${subpath}`;
+						const queryParams: string[] = [];
+						if (select && select.length > 0) {
+							queryParams.push(`$select=${encodeURIComponent(select.join(','))}`);
+						}
+						if (top) {
+							queryParams.push(`$top=${top}`);
+						}
+						if (filter) {
+							queryParams.push(`$filter=${encodeURIComponent(filter)}`);
+						}
+						if (expand) {
+							queryParams.push(`$expand=${encodeURIComponent(expand)}`);
+						}
+						if (queryParams.length > 0) {
+							url += `?${queryParams.join('&')}`;
+						}
+						const cookieHeader = [authCookie?.split(';')[0], csrfCookie?.split(';')[0], bpmLoader?.split(';')[0], userType]
+							.filter(Boolean)
+							.join('; ');
+						const csrfToken = csrfCookie?.split('=')[1];
+						response = await this.helpers.request({
+							method: 'GET',
+							url,
+							headers: {
+								Accept: 'application/json',
+								'Content-Type': 'application/json',
+								Cookie: cookieHeader,
+								BPMCSRF: csrfToken,
+							},
+							json: true,
+						});
+						
+						if (!subpath && response.value) {
+							response = response.value.map((item: any) => ({ tableName: item.name }));
+						}
+						
+						break;
 					}
-					if (top) {
-						queryParams.push(`$top=${top}`);
-					}
-					if (filter) {
-						queryParams.push(`$filter=${encodeURIComponent(filter)}`);
-					}
-					if (expand) {
-						queryParams.push(`$expand=${encodeURIComponent(expand)}`);
-					}
-					if (queryParams.length > 0) {
-						url += `?${queryParams.join('&')}`;
-					}
-					const cookieHeader = [authCookie?.split(';')[0], csrfCookie?.split(';')[0], bpmLoader?.split(';')[0], userType]
-						.filter(Boolean)
-						.join('; ');
-					const csrfToken = csrfCookie?.split('=')[1];
-					response = await this.helpers.request({
-						method: 'GET',
-						url,
-						headers: {
-							Accept: 'application/json',
-							'Content-Type': 'application/json',
-							Cookie: cookieHeader,
-							BPMCSRF: csrfToken,
-						},
-						json: true,
-					});
-					
-					if (!subpath && response.value) {
+					case 'TABLES': {
+						let url = `${creatioUrl}/0/odata/`;
+						const cookieHeader = [authCookie?.split(';')[0], csrfCookie?.split(';')[0], bpmLoader?.split(';')[0], userType]
+							.filter(Boolean)
+							.join('; ');
+						const csrfToken = csrfCookie?.split('=')[1];
+						response = await this.helpers.request({
+							method: 'GET',
+							url,
+							headers: {
+								Accept: 'application/json',
+								'Content-Type': 'application/json',
+								Cookie: cookieHeader,
+								BPMCSRF: csrfToken,
+							},
+							json: true,
+						});
+
 						response = response.value.map((item: any) => ({ tableName: item.name }));
+						
+						break;
 					}
-					
-					break;
-				}
-				case 'TABLES': {
-					let url = `${creatioUrl}/0/odata/`;
-					const cookieHeader = [authCookie?.split(';')[0], csrfCookie?.split(';')[0], bpmLoader?.split(';')[0], userType]
-						.filter(Boolean)
-						.join('; ');
-					const csrfToken = csrfCookie?.split('=')[1];
-					response = await this.helpers.request({
-						method: 'GET',
-						url,
-						headers: {
-							Accept: 'application/json',
-							'Content-Type': 'application/json',
-							Cookie: cookieHeader,
-							BPMCSRF: csrfToken,
-						},
-						json: true,
-					});
+					case 'POST': {
+						const cookieHeader = [
+							sessionIdCookie?.split(';')[0],
+							authCookie?.split(';')[0],
+							csrfCookie?.split(';')[0],
+							bpmLoader?.split(';')[0],
+							userType
+						].filter(Boolean).join('; ');
+						const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
+						const subpath = this.getNodeParameter('subpath', i) as string;
+						const requestBody = this.getNodeParameter('body', i) as object;
+						let url = `${creatioUrl}/0/odata/${subpath}`;
+						response = await this.helpers.request({
+							method: 'POST',
+							url,
+							headers: {
+								Accept: '*/*',
+								'Content-Type': 'application/json',
+								Cookie: cookieHeader,
+								BPMCSRF: csrfToken,
+							},
+							body: requestBody,
+							json: true,
+						});
+						break;
+					}
+					case 'PATCH': {
+						const cookieHeader = [
+							sessionIdCookie?.split(';')[0],
+							authCookie?.split(';')[0],
+							csrfCookie?.split(';')[0],
+							bpmLoader?.split(';')[0],
+							userType
+						].filter(Boolean).join('; ');
+						const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
+						const subpath = this.getNodeParameter('subpath', i) as string;
+						const id = this.getNodeParameter('id', i, '') as string;
+						const requestBody = this.getNodeParameter('body', i) as object;
+						let url = `${creatioUrl}/0/odata/${subpath}`;
+						if (id) {
+							url = `${creatioUrl}/0/odata/${subpath}(${id})`;
+						}
+						response = await this.helpers.request({
+							method: 'PATCH',
+							url,
+							headers: {
+								Accept: '*/*',
+								'Content-Type': 'application/json',
+								Cookie: cookieHeader,
+								BPMCSRF: csrfToken,
+							},
+							body: requestBody,
+							json: true,
+						});
+						break;
+					}
+					case 'DELETE': {
+						const cookieHeader = [
+							sessionIdCookie?.split(';')[0],
+							authCookie?.split(';')[0],
+							csrfCookie?.split(';')[0],
+							bpmLoader?.split(';')[0],
+							userType
+						].filter(Boolean).join('; ');
+						const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
+						const subpath = this.getNodeParameter('subpath', i) as string;
+						const id = this.getNodeParameter('id', i, '') as string;
+						const requestBody = this.getNodeParameter('body', i) as object;
+						let url = `${creatioUrl}/0/odata/${subpath}`;
+						if (id) {
+							url = `${creatioUrl}/0/odata/${subpath}(${id})`;
+						}
+						response = await this.helpers.request({
+							method: 'DELETE',
+							url,
+							headers: {
+								Accept: '*/*',
+								'Content-Type': 'application/json',
+								Cookie: cookieHeader,
+								BPMCSRF: csrfToken,
+							},
+							body: requestBody,
+							json: true,
+						});
 
-					response = response.value.map((item: any) => ({ tableName: item.name }));
-					
-					break;
-				}
-				case 'POST': {
-					const cookieHeader = [
-						sessionIdCookie?.split(';')[0],
-						authCookie?.split(';')[0],
-						csrfCookie?.split(';')[0],
-						bpmLoader?.split(';')[0],
-						userType
-					].filter(Boolean).join('; ');
-					const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
-					const subpath = this.getNodeParameter('subpath', i) as string;
-					const requestBody = this.getNodeParameter('body', i) as object;
-					let url = `${creatioUrl}/0/odata/${subpath}`;
-					response = await this.helpers.request({
-						method: 'POST',
-						url,
-						headers: {
-							Accept: '*/*',
-							'Content-Type': 'application/json',
-							Cookie: cookieHeader,
-							BPMCSRF: csrfToken,
-						},
-						body: requestBody,
-						json: true,
-					});
-					break;
-				}
-				case 'PATCH': {
-					const cookieHeader = [
-						sessionIdCookie?.split(';')[0],
-						authCookie?.split(';')[0],
-						csrfCookie?.split(';')[0],
-						bpmLoader?.split(';')[0],
-						userType
-					].filter(Boolean).join('; ');
-					const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
-					const subpath = this.getNodeParameter('subpath', i) as string;
-					const id = this.getNodeParameter('id', i, '') as string;
-					const requestBody = this.getNodeParameter('body', i) as object;
-					let url = `${creatioUrl}/0/odata/${subpath}`;
-					if (id) {
-						url = `${creatioUrl}/0/odata/${subpath}(${id})`;
-					}
-					response = await this.helpers.request({
-						method: 'PATCH',
-						url,
-						headers: {
-							Accept: '*/*',
-							'Content-Type': 'application/json',
-							Cookie: cookieHeader,
-							BPMCSRF: csrfToken,
-						},
-						body: requestBody,
-						json: true,
-					});
-					break;
-				}
-				case 'DELETE': {
-					const cookieHeader = [
-						sessionIdCookie?.split(';')[0],
-						authCookie?.split(';')[0],
-						csrfCookie?.split(';')[0],
-						bpmLoader?.split(';')[0],
-						userType
-					].filter(Boolean).join('; ');
-					const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
-					const subpath = this.getNodeParameter('subpath', i) as string;
-					const id = this.getNodeParameter('id', i, '') as string;
-					const requestBody = this.getNodeParameter('body', i) as object;
-					let url = `${creatioUrl}/0/odata/${subpath}`;
-					if (id) {
-						url = `${creatioUrl}/0/odata/${subpath}(${id})`;
-					}
-					response = await this.helpers.request({
-						method: 'DELETE',
-						url,
-						headers: {
-							Accept: '*/*',
-							'Content-Type': 'application/json',
-							Cookie: cookieHeader,
-							BPMCSRF: csrfToken,
-						},
-						body: requestBody,
-						json: true,
-					});
+						// Return a meaningfull message after delete. 
+						if (response === '') {
+							response = { "deleted": true };
+						}
 
-					// Return a meaningfull message after delete. 
-					if (response === '') {
-						response = { "deleted": true };
+						break;
 					}
-
-					break;
+				}
+			} catch (error: any) {
+				if (error.statusCode === 401) {
+					response = [];
+				} else {
+					throw error;
 				}
 			}
 			returnData.push(response);
