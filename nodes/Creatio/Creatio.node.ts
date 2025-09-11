@@ -203,9 +203,9 @@ export class Creatio implements INodeType {
 					},
 					{
 						name: 'METADATA',
-						description: 'Gets fieldnames for a table.',
+						description: 'Gets fieldnames for a table',
 						value: 'METADATA',
-						action: 'Get the fieldnames for a table.',
+						action: 'Get the fieldnames for a table',
 					},
 					{
 						name: 'PATCH',
@@ -233,14 +233,14 @@ export class Creatio implements INodeType {
 				name: 'subpath',
 				type: 'options',
 				default: '',
-				description: 'The OData entity to target (e.g., Account, Contact). Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				description: 'The exact name of the table to retrieve data from',
 				required: true,
 				typeOptions: {
 					loadOptionsMethod: 'getODataEntities',
 				},
 				displayOptions: {
 					show: {
-						operation: ['GET', 'POST', 'PATCH'],
+						operation: ['GET', 'POST', 'PATCH', 'METADATA'],
 					},
 				},
 			},
@@ -455,7 +455,12 @@ export class Creatio implements INodeType {
 							json: true,
 						});
 
-						response = response.value.map((item: any) => ({ tableName: item.name }));
+						response = response.value
+							.filter((item: any) => {
+								const name = item.name.toLowerCase();
+								return !name.startsWith('vw') && !name.startsWith('sys') && !name.startsWith('oauth') && !name.startsWith('web');
+							})
+							.map((item: any) => ({ tableName: item.name }));
 						
 						break;
 					}
