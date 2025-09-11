@@ -202,6 +202,12 @@ export class Creatio implements INodeType {
 						action: 'Get one or more records',
 					},
 					{
+						name: 'METADATA',
+						description: 'Gets fieldnames for a table.',
+						value: 'METADATA',
+						action: 'Get the fieldnames for a table.',
+					},
+					{
 						name: 'PATCH',
 						description: 'Update record',
 						value: 'PATCH',
@@ -393,6 +399,42 @@ export class Creatio implements INodeType {
 							response = response.value.map((item: any) => ({ tableName: item.name }));
 						}
 						
+						break;
+					}
+					case 'METADATA': {
+						const subpath = this.getNodeParameter('subpath', i) as string;
+						let url = `${creatioUrl}/0/odata/$metadata`;
+						const cookieHeader = [authCookie?.split(';')[0], csrfCookie?.split(';')[0], bpmLoader?.split(';')[0], userType]
+							.filter(Boolean)
+							.join('; ');
+						const csrfToken = csrfCookie?.split('=')[1];
+						response = await this.helpers.request({
+							method: 'GET',
+							url: url,
+							headers: {
+								Accept: 'application/xml',
+								Cookie: cookieHeader,
+								BPMCSRF: csrfToken,
+							},
+						});
+
+						const entityRegex = new RegExp(`<EntityType Name="${subpath}"[\\s\\S]*?<\\/EntityType>`, 'g');
+						const entityMatch = entityRegex.exec(response);
+						if (!entityMatch) {
+							response = [];
+						}
+
+						const entityXml = entityMatch![0];
+						const propertyRegex = /<Property Name="([^"]+)"/g;
+						const fields: { name: string; value: string }[] = [];
+						let match;
+						while ((match = propertyRegex.exec(entityXml)) !== null) {
+							fields.push({ name: match[1], value: match[1] });
+						}
+
+						var mappedFields = fields.map((item: any) => ({ fieldName: item.name }));
+						response = mappedFields;
+
 						break;
 					}
 					case 'TABLES': {
