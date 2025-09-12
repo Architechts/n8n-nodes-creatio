@@ -233,7 +233,7 @@ export class Creatio implements INodeType {
 				name: 'subpath',
 				type: 'options',
 				default: '',
-				description: 'The exact name of the table to retrieve data from',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 				required: true,
 				typeOptions: {
 					loadOptionsMethod: 'getODataEntities',
@@ -249,7 +249,7 @@ export class Creatio implements INodeType {
 				name: 'select',
 				type: 'multiOptions',
 				default: [],
-				description: 'Select one or more fields to include in the result. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				description: 'Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 				typeOptions: {
 					loadOptionsMethod: 'getODataEntityFields',
 					loadOptionsDependsOn: ["subpath"],
@@ -358,7 +358,8 @@ export class Creatio implements INodeType {
 				switch (operation) {
 					case 'GET': {
 						const subpath = this.getNodeParameter('subpath', i) as string;
-						const select = this.getNodeParameter('select', i) as string[];
+						const selectParam = this.getNodeParameter('select', i) as string[] | string;
+						const select = Array.isArray(selectParam) ? selectParam : [];
 						const top = this.getNodeParameter('top', i) as number;
 						const filter = this.getNodeParameter('filter', i) as string;
 						const expand = this.getNodeParameter('expand', i) as string;
