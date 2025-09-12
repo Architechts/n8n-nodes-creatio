@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-creatio",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Connect n8n to Creatio CRM platform. Create, read, update, and delete records in any Creatio entity with dynamic field selection and OData filtering.",
   "keywords": [
     "n8n-community-node-package",
