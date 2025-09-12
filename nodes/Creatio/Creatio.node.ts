@@ -398,6 +398,8 @@ export class Creatio implements INodeType {
 						
 						if (!subpath && response.value) {
 							response = response.value.map((item: any) => ({ tableName: item.name }));
+						} else if (response.value) {
+							response = response.value;
 						}
 						
 						break;
