@@ -326,7 +326,7 @@ export class Creatio implements INodeType {
 				name: 'appendRequest',
 				type: 'boolean',
 				description:
-					'Append the request to the response..',
+					'Whether to append the request to the response',
 				noDataExpression: true,
 				default: false,
 				displayOptions: {
