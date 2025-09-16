@@ -322,6 +322,20 @@ export class Creatio implements INodeType {
 				},
 			},
 			{
+				displayName: 'Append Request',
+				name: 'appendRequest',
+				type: 'boolean',
+				description:
+					'Append the request to the response..',
+				noDataExpression: true,
+				default: false,
+				displayOptions: {
+					show: {
+						operation: ['GET', 'POST', 'PATCH'],
+					},
+				},
+			},
+			{
 				displayName: 'Specify Input Schema',
 				name: 'specifyInputSchema',
 				type: 'boolean',
@@ -567,7 +581,29 @@ export class Creatio implements INodeType {
 					throw error;
 				}
 			}
-			returnData.push(response);
+			
+			const appendRequest = this.getNodeParameter('appendRequest', i, false) as boolean;
+			if (appendRequest && ['GET', 'POST', 'PATCH'].includes(operation)) {
+				const requestFields: any = { operation };
+				if (['GET', 'POST', 'PATCH'].includes(operation)) {
+					requestFields.subpath = this.getNodeParameter('subpath', i, '');
+				}
+				if (operation === 'GET') {
+					requestFields.select = this.getNodeParameter('select', i, []);
+					requestFields.top = this.getNodeParameter('top', i, 10);
+					requestFields.filter = this.getNodeParameter('filter', i, '');
+					requestFields.expand = this.getNodeParameter('expand', i, '');
+				}
+				if (operation === 'PATCH') {
+					requestFields.id = this.getNodeParameter('id', i, '');
+				}
+				if (['POST', 'PATCH'].includes(operation)) {
+					requestFields.body = this.getNodeParameter('body', i, {});
+				}
+				returnData.push({ ...requestFields, response });
+			} else {
+				returnData.push(response);
+			}
 		}
 		return [this.helpers.returnJsonArray(returnData)];
 	}
