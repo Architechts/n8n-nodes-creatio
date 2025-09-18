@@ -373,7 +373,7 @@ export class Creatio implements INodeType {
 					case 'GET': {
 						const subpath = this.getNodeParameter('subpath', i) as string;
 						const selectParam = this.getNodeParameter('select', i) as string[] | string;
-						const select = Array.isArray(selectParam) ? selectParam : [];
+						const select = Array.isArray(selectParam) ? selectParam : (selectParam ? selectParam.split(',').map(s => s.trim()) : []);
 						const top = this.getNodeParameter('top', i) as number;
 						const filter = this.getNodeParameter('filter', i) as string;
 						const expand = this.getNodeParameter('expand', i) as string;
