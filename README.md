@@ -8,6 +8,8 @@ This node allows you connect N8N to Creatio, the popular Agentic Nocode Platform
 - [Usage](#usage)
 - [Authentication](#authentication)
 - [Resources](#resources)
+- [License](#license)
+
 ---
 
 ## Installation
@@ -74,3 +76,11 @@ All fields required
 ## Resources
 
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
+
+## License
+
+This project is licensed under the **MIT License with Commons Clause**.
+- ✅ Free for personal, educational, and non-commercial use.  
+- 💼 Commercial use (including providing services, SaaS, or selling products that substantially derive value from this software) requires a separate license agreement with **Architechts NV**.  
+
+For questions or licensing inquiries, please contact: finance@architechts.nl
