@@ -79,7 +79,7 @@ All fields required
 
 ## License
 
-This project is licensed under the **MIT License with Commons Clause**.
+This project is licensed under the **Business Source License 1.1**.
 - ✅ Free for personal, educational, and non-commercial use.  
 - 💼 Commercial use (including providing services, SaaS, or selling products that substantially derive value from this software) requires a separate license agreement with **Architechts NV**.  
 

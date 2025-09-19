@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-creatio",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Connect n8n to Creatio CRM platform. Create, read, update, and delete records in any Creatio entity with dynamic field selection and OData filtering.",
   "keywords": [
     "n8n-community-node-package",
@@ -8,7 +8,7 @@
     "architechts",
     "crm"
   ],
-  "license": "MIT",
+  "license": "BSL-1.1",
   "homepage": "https://github.com/Architechts/n8n-nodes-creatio",
   "author": {
     "name": "Bohdain Kroes",
