@@ -11,7 +11,7 @@
 import { Icon, ICredentialTestRequest, ICredentialType, INodeProperties } from 'n8n-workflow';
 
 export class CreatioApi implements ICredentialType {
-	displayName = 'Creatio API';
+	displayName = 'Creatio API /n Additional license costs may apply.';
 	name = 'creatioApi';
 	icon: Icon = 'file:Creatio.svg';
 	documentationUrl = 'https://community.creatio.com';
@@ -22,6 +22,7 @@ export class CreatioApi implements ICredentialType {
 			type: 'string',
 			default: '',
 			description: 'The URL of your Creatio instance (e.g., https://your-instance.creatio.com)',
+			hint: 'This is the URL of your Creatio instance, without the trailing slash',
 		},
 		{
 			displayName: 'Username',
