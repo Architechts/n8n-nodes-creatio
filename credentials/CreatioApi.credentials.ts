@@ -11,10 +11,10 @@
 import { Icon, ICredentialTestRequest, ICredentialType, INodeProperties } from 'n8n-workflow';
 
 export class CreatioApi implements ICredentialType {
-	displayName = 'Creatio API /n Additional license costs may apply.';
+	displayName = 'Creatio API - Additional license costs may apply.';
 	name = 'creatioApi';
 	icon: Icon = 'file:Creatio.svg';
-	documentationUrl = 'https://community.creatio.com';
+	documentationUrl = 'https://github.com/Architechts/n8n-nodes-creatio';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Creatio URL',
