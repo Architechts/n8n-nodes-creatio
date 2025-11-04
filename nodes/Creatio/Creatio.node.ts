@@ -17,26 +17,26 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 
-import {
-	buildInputSchemaField,
-	buildJsonSchemaExampleField,
-	buildJsonSchemaExampleNotice,
-	schemaTypeField,
-} from '../../utils/Descriptions';
+// import {
+// 	buildInputSchemaField,
+// 	buildJsonSchemaExampleField,
+// 	buildJsonSchemaExampleNotice,
+// 	schemaTypeField,
+// } from '../../utils/Descriptions';
 
-
-const jsonSchemaExampleField = buildJsonSchemaExampleField({
-	showExtraProps: { specifyInputSchema: [true] },
-});
-
-const jsonSchemaExampleNotice = buildJsonSchemaExampleNotice({
-	showExtraProps: {
-		specifyInputSchema: [true],
-		'@version': [{ _cnd: { gte: 1.3 } }],
-	},
-});
-
-const jsonSchemaField = buildInputSchemaField({ showExtraProps: { specifyInputSchema: [true] } });
+// Tool usage for specifying input.
+// const jsonSchemaExampleField = buildJsonSchemaExampleField({
+// 	showExtraProps: { specifyInputSchema: [true] },
+// });
+	 
+// const jsonSchemaExampleNotice = buildJsonSchemaExampleNotice({
+// 	showExtraProps: {
+// 		specifyInputSchema: [true],
+// 		'@version': [{ _cnd: { gte: 1.3 } }],
+// 	},
+// });
+	 
+// const jsonSchemaField = buildInputSchemaField({ showExtraProps: { specifyInputSchema: [true] } });
 
 export class Creatio implements INodeType {
 	// Extracted authentication helper as a static method
@@ -193,6 +193,9 @@ export class Creatio implements INodeType {
 		],
 		usableAsTool: true,
 		properties: [
+			// ----------------------------------
+			//         GENERIC
+			// ----------------------------------
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -234,10 +237,15 @@ export class Creatio implements INodeType {
 						description: 'Gets Tables',
 						value: 'TABLES',
 						action: 'Get tablenames',
-					}			
+					}
 				],
 				default: 'GET',
 			},
+
+			// ----------------------------------
+			//         GET / READ
+			// ----------------------------------
+			
 			{
 				displayName: 'Subpath Name or ID',
 				name: 'subpath',
@@ -250,7 +258,7 @@ export class Creatio implements INodeType {
 				},
 				displayOptions: {
 					show: {
-						operation: ['GET', 'POST', 'PATCH', 'METADATA'],
+						operation: ['GET'],
 					},
 				},
 			},
@@ -283,16 +291,17 @@ export class Creatio implements INodeType {
 				},
 			},
 			{
-				displayName: 'Filter',
+				displayName: 'Filter By Formula',
 				name: 'filter',
 				type: 'string',
 				default: '',
-				description: 'OData filter expression (e.g., "Name eq \'John\'")',
+				description: 'A formula used to filter records. The formula will be evaluated for each record, and if the result is not 0, false, "", NaN, [], or #Error! the record will be included in the response.',
 				displayOptions: {
 					show: {
 						operation: ['GET'],
 					},
 				},
+				placeholder: "NOT({Name} = '')"
 			},
 			{
 				displayName: 'Expand',
@@ -307,27 +316,134 @@ export class Creatio implements INodeType {
 				},
 			},
 			{
-				displayName: 'ID',
-				name: 'id',
-				type: 'string',
-				default: '',
-				description: 'Resource ID',
+				displayName: 'Append Request',
+				name: 'appendRequest',
+				type: 'boolean',
+				description:
+					'Whether to append the request to the response',
+				noDataExpression: true,
+				default: false,
 				displayOptions: {
 					show: {
-						operation: ['PATCH', "DELETE"],
+						operation: ['GET'],
+					},
+				},
+			},
+
+			// ----------------------------------
+			//         PATCH / UPDATE
+			// ----------------------------------
+
+			{
+				displayName: 'Subpath Name or ID',
+				name: 'subpath',
+				type: 'options',
+				default: '',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				required: true,
+				typeOptions: {
+					loadOptionsMethod: 'getODataEntities',
+				},
+				displayOptions: {
+					show: {
+						operation: ['PATCH'],
 					},
 				},
 			},
 			{
-				displayName: 'Body',
+				displayName: 'ID',
+				name: 'id',
+				type: 'string',
+				displayOptions: {
+					show: {
+						operation: ['PATCH'],
+					},
+				},
+				default: '',
+				required: true,
+				description: 'ID of the record to update',
+			},
+			//{
+			//	displayName: 'Update All Fields',
+			//	name: 'updateAllFields',
+			//	type: 'boolean',
+			//	displayOptions: {
+			//		show: {
+			//			operation: ['PATCH'],
+			//		},
+			//	},
+			//	default: true,
+			//	description: 'Whether all fields should be sent to Creatio or only specific ones',
+			//},
+			{
+				displayName: 'Fields',
+				name: 'fields',
+				type: 'fixedCollection',
+				typeOptions: {
+					multipleValues: true,
+				},
+				displayOptions: {
+					show: {
+						//updateAllFields: [false],
+						operation: ['PATCH'],
+					},
+				},
+				default: {},
+				placeholder: 'Add Field',
+				options: [
+					{
+						name: 'field',
+						displayName: 'Field',
+						values: [
+							{
+								displayName: 'Field Name',
+								name: 'fieldName',
+								type: 'options',
+								typeOptions: {
+									loadOptionsMethod: 'getODataEntityFields',
+									loadOptionsDependsOn: ['subpath'],
+								},
+								default: '',
+								description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+							},
+							{
+								displayName: 'Field Value',
+								name: 'fieldValue',
+								type: 'string',
+								default: '',
+								placeholder: 'value',
+								description: 'Value for the field',
+							},
+						],
+					},
+				],
+				description: 'The fields to update with their values',
+			},
+			{
+				displayName: 'Use self formatted body for update',
+				name: 'useBody',
+				type: 'boolean',
+				description:
+					'Whether to format the body to sent in n8n',
+				noDataExpression: true,
+				default: false,
+				displayOptions: {
+					show: {
+						operation: ['PATCH'],
+					},
+				},
+			},
+			{
+				displayName: 'Update body',
 				name: 'body',
 				type: 'json',
 				default: '',
-				description: 'The JSON body to send',
-				required: true,
+				description: 'The formatted JSON body to send',
+				required: false,
 				displayOptions: {
 					show: {
-						operation: ['POST', 'PATCH'],
+						useBody: [true],
+						operation: ['PATCH'],
 					},
 				},
 			},
@@ -341,25 +457,190 @@ export class Creatio implements INodeType {
 				default: false,
 				displayOptions: {
 					show: {
-						operation: ['GET', 'POST', 'PATCH'],
+						operation: ['PATCH'],
+					},
+				},
+			},
+
+			// ----------------------------------
+			//         DELETE / DELETE
+			// ----------------------------------
+			{
+				displayName: 'Subpath Name or ID',
+				name: 'subpath',
+				type: 'options',
+				default: '',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				required: true,
+				typeOptions: {
+					loadOptionsMethod: 'getODataEntities',
+				},
+				displayOptions: {
+					show: {
+						operation: ['DELETE'],
 					},
 				},
 			},
 			{
-				displayName: 'Specify Input Schema',
-				name: 'specifyInputSchema',
-				type: 'boolean',
-				description:
-					'Whether to specify the schema for the function. This would require the LLM to provide the input in the correct format and would validate it against the schema.',
-				noDataExpression: true,
-				default: false,
+				displayName: 'ID',
+				name: 'id',
+				type: 'string',
+				displayOptions: {
+					show: {
+						operation: ['DELETE'],
+					},
+				},
+				default: '',
+				required: true,
+				description: 'ID of the record to delete',
+			},
+
+			// ----------------------------------
+			//         POST / CREATE
+			// ----------------------------------
+
+			{
+				displayName: 'Subpath Name or ID',
+				name: 'subpath',
+				type: 'options',
+				default: '',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				required: true,
+				typeOptions: {
+					loadOptionsMethod: 'getODataEntities',
+				},
+				displayOptions: {
+					show: {
+						operation: ['POST'],
+					},
+				},
 			},
 			{
-				...schemaTypeField, displayOptions: { show: { specifyInputSchema: [true] } }
+				displayName: 'Fields',
+				name: 'fields',
+				type: 'fixedCollection',
+				typeOptions: {
+					multipleValues: true,
+				},
+				displayOptions: {
+					show: {
+						//updateAllFields: [false],
+						operation: ['POST'],
+					},
+				},
+				default: {},
+				placeholder: 'Add Field',
+				options: [
+					{
+						name: 'field',
+						displayName: 'Field',
+						values: [
+							{
+								displayName: 'Field Name',
+								name: 'fieldName',
+								type: 'options',
+								typeOptions: {
+									loadOptionsMethod: 'getODataEntityFields',
+									loadOptionsDependsOn: ['subpath'],
+								},
+								default: '',
+								description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+							},
+							{
+								displayName: 'Field Value',
+								name: 'fieldValue',
+								type: 'string',
+								default: '',
+								placeholder: 'value',
+								description: 'Value for the field',
+							},
+						],
+					},
+				],
+				description: 'The fields to update with their values',
 			},
-			jsonSchemaExampleField,
-			jsonSchemaExampleNotice,
-			jsonSchemaField,
+			{
+				displayName: 'Use self formatted body for update',
+				name: 'useBody',
+				type: 'boolean',
+				description:
+					'Whether to format the body to sent in n8n',
+				noDataExpression: true,
+				default: false,
+				displayOptions: {
+					show: {
+						operation: ['POST'],
+					},
+				},
+			},
+			{
+				displayName: 'Update body',
+				name: 'body',
+				type: 'json',
+				default: '',
+				description: 'The formatted JSON body to send',
+				required: false,
+				displayOptions: {
+					show: {
+						useBody: [true],
+						operation: ['POST'],
+					},
+				},
+			},
+			{
+				displayName: 'Append Request',
+				name: 'appendRequest',
+				type: 'boolean',
+				description:
+					'Whether to append the request to the response',
+				noDataExpression: true,
+				default: false,
+				displayOptions: {
+					show: {
+						operation: ['POST'],
+					},
+				},
+			},
+
+			// ----------------------------------
+			//         METADATA
+			// ----------------------------------
+
+			{
+				displayName: 'Subpath Name or ID',
+				name: 'subpath',
+				type: 'options',
+				default: '',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				required: true,
+				typeOptions: {
+					loadOptionsMethod: 'getODataEntities',
+				},
+				displayOptions: {
+					show: {
+						operation: ['METADATA'],
+					},
+				},
+			},
+
+			// ----------------------------------
+			//     GENERIC - Tool specialized
+			// ----------------------------------
+			//{
+			//	displayName: 'Specify Input Schema',
+			//	name: 'specifyInputSchema',
+			//	type: 'boolean',
+			//	description:
+			//		'Whether to specify the schema for the function. This would require the LLM to provide the input in the correct format and would validate it against the schema.',
+			//	noDataExpression: true,
+			//	default: false,
+			//},
+			//{
+			//	...schemaTypeField, displayOptions: { show: { specifyInputSchema: [true] } }
+			//},
+			//jsonSchemaExampleField,
+			//jsonSchemaExampleNotice,
+			//jsonSchemaField,
 		],
 	};
 
@@ -501,7 +782,20 @@ export class Creatio implements INodeType {
 						].filter(Boolean).join('; ');
 						const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
 						const subpath = this.getNodeParameter('subpath', i) as string;
-						const requestBody = this.getNodeParameter('body', i) as object;
+						const useBody = this.getNodeParameter('useBody', i, false) as boolean;
+						
+						let requestBody: any = {};
+						if (useBody) {
+							requestBody = this.getNodeParameter('body', i) as object;
+						} else {
+							const fields = this.getNodeParameter('fields', i, []) as { field: { fieldName: string, fieldValue: string }[] };
+							if (fields.field) {
+								for (const fieldData of fields.field) {
+									requestBody[fieldData.fieldName] = fieldData.fieldValue;
+								}
+							}
+						}
+						
 						let url = `${creatioUrl}/0/odata/${subpath}`;
 						response = await this.helpers.request({
 							method: 'POST',
@@ -528,7 +822,22 @@ export class Creatio implements INodeType {
 						const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
 						const subpath = this.getNodeParameter('subpath', i) as string;
 						const id = this.getNodeParameter('id', i, '') as string;
-						const requestBody = this.getNodeParameter('body', i) as object;
+						const useBody = this.getNodeParameter('useBody', i, false) as boolean;
+						
+						let requestBody: any = {};
+						if (useBody) {
+							requestBody = this.getNodeParameter('body', i) as object;
+						} else {
+							const fields = this.getNodeParameter('fields', i, []) as { field: { fieldName: string, fieldValue: string }[] };
+							if (fields.field) {
+								for (const fieldData of fields.field) {
+									if (fieldData.fieldValue !== '' && fieldData.fieldValue !== null && fieldData.fieldValue !== undefined) {
+										requestBody[fieldData.fieldName] = fieldData.fieldValue;
+									}
+								}
+							}
+						}
+						
 						let url = `${creatioUrl}/0/odata/${subpath}`;
 						if (id) {
 							url = `${creatioUrl}/0/odata/${subpath}(${id})`;
@@ -558,7 +867,6 @@ export class Creatio implements INodeType {
 						const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
 						const subpath = this.getNodeParameter('subpath', i) as string;
 						const id = this.getNodeParameter('id', i, '') as string;
-						const requestBody = this.getNodeParameter('body', i) as object;
 						let url = `${creatioUrl}/0/odata/${subpath}`;
 						if (id) {
 							url = `${creatioUrl}/0/odata/${subpath}(${id})`;
@@ -572,7 +880,6 @@ export class Creatio implements INodeType {
 								Cookie: cookieHeader,
 								BPMCSRF: csrfToken,
 							},
-							body: requestBody,
 							json: true,
 						});
 
