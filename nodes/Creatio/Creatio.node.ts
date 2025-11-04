@@ -391,7 +391,7 @@ export class Creatio implements INodeType {
 						displayName: 'Field',
 						values: [
 							{
-								displayName: 'Field Name',
+								displayName: 'Field Name or ID',
 								name: 'fieldName',
 								type: 'options',
 								typeOptions: {
@@ -415,7 +415,7 @@ export class Creatio implements INodeType {
 				description: 'The fields to update with their values',
 			},
 			{
-				displayName: 'Use self formatted body for update',
+				displayName: 'Use Self Formatted Body for Update',
 				name: 'useBody',
 				type: 'boolean',
 				description:
@@ -429,12 +429,11 @@ export class Creatio implements INodeType {
 				},
 			},
 			{
-				displayName: 'Update body',
+				displayName: 'Update Body',
 				name: 'body',
 				type: 'json',
 				default: '',
 				description: 'The formatted JSON body to send',
-				required: false,
 				displayOptions: {
 					show: {
 						useBody: [true],
@@ -531,7 +530,7 @@ export class Creatio implements INodeType {
 						displayName: 'Field',
 						values: [
 							{
-								displayName: 'Field Name',
+								displayName: 'Field Name or ID',
 								name: 'fieldName',
 								type: 'options',
 								typeOptions: {
@@ -555,7 +554,7 @@ export class Creatio implements INodeType {
 				description: 'The fields to update with their values',
 			},
 			{
-				displayName: 'Use self formatted body for update',
+				displayName: 'Use Self Formatted Body for Update',
 				name: 'useBody',
 				type: 'boolean',
 				description:
@@ -569,12 +568,11 @@ export class Creatio implements INodeType {
 				},
 			},
 			{
-				displayName: 'Update body',
+				displayName: 'Update Body',
 				name: 'body',
 				type: 'json',
 				default: '',
 				description: 'The formatted JSON body to send',
-				required: false,
 				displayOptions: {
 					show: {
 						useBody: [true],
