@@ -29,6 +29,7 @@ export class CreatioOAuth2Api implements ICredentialType {
 			name: 'creatioUrl',
 			type: 'string',
 			default: '',
+			placeholder: 'https://your-instance.creatio.com',
 			required: true,
 			description:
 				'The base URL of your Creatio instance (e.g., https://your-instance.creatio.com), without a trailing slash',
@@ -38,6 +39,7 @@ export class CreatioOAuth2Api implements ICredentialType {
 			name: 'accessTokenUrl',
 			type: 'string',
 			default: '',
+			placeholder: 'https://your-instance-is.creatio.com/connect/token',
 			required: true,
 			description:
 				'The Creatio Identity Service token endpoint, e.g. https://your-instance-is.creatio.com/connect/token',
