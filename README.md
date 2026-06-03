@@ -22,6 +22,7 @@ Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes
 
 - Connect n8n to your Creatio instance
 - Create, read, update, and delete records in any Creatio entity
+- Upload and download file attachments
 - Select entities and fields dynamically
 - Execute custom methods on Creatio models
 - Store and manage multiple Creatio credentials
@@ -44,6 +45,17 @@ Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes
 #### DELETE
 - Choose your Creatio subPath from the dropdown menu or add manually using an Expression
 - Enter ID of record to delete
+
+#### Upload File
+- Set the **Input Binary Field** that holds the file (default `data`)
+- Set the **Entity Schema Name** (the file entity, e.g. `ContactFile`, `AccountFile` or `SysFile`)
+- Set **Parent Column Name** / **Parent Column Value** to link the file to its parent record (e.g. `Contact` and the contact's GUID)
+- A new file ID GUID is generated automatically; override it (or the file name, MIME type, and `AdditionalParams`) under **Options** if needed
+- Uploads in a single request — suitable for files up to ~30 MB. Larger files would require chunked upload (not yet supported)
+
+#### Download File
+- Set the **Entity Schema Name** and the **File ID** (GUID of the file record)
+- The file is written to the binary output field set in **Put Output File in Field** (default `data`)
 
 
 **Example use cases:**

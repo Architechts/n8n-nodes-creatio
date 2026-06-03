@@ -14,7 +14,14 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 
-import { creatioApiRequest, CreatioAuthentication } from './GenericFunctions';
+import { randomUUID } from 'node:crypto';
+
+import {
+	creatioApiRequest,
+	creatioFileUploadRequest,
+	creatioFileDownloadRequest,
+	CreatioAuthentication,
+} from './GenericFunctions';
 
 export class Creatio implements INodeType {
 	methods = {
@@ -146,6 +153,12 @@ export class Creatio implements INodeType {
 						action: 'Delete a record permanently',
 					},
 					{
+						name: 'Download File',
+						description: 'Download a file from a Creatio file entity by its file ID',
+						value: 'DOWNLOAD',
+						action: 'Download a file',
+					},
+					{
 						name: 'GET',
 						description: 'Gets record',
 						value: 'GET',
@@ -174,6 +187,12 @@ export class Creatio implements INodeType {
 						description: 'Gets Tables',
 						value: 'TABLES',
 						action: 'Get tablenames',
+					},
+					{
+						name: 'Upload File',
+						description: 'Upload a binary file to a Creatio file entity (e.g. ContactFile)',
+						value: 'UPLOAD',
+						action: 'Upload a file',
 					}
 				],
 				default: 'GET',
@@ -559,6 +578,186 @@ export class Creatio implements INodeType {
 			},
 
 			// ----------------------------------
+			//         UPLOAD FILE
+			// ----------------------------------
+			{
+				displayName: 'Input Binary Field',
+				name: 'binaryPropertyName',
+				type: 'string',
+				default: 'data',
+				required: true,
+				description: 'Name of the binary property on the input item that holds the file',
+				displayOptions: {
+					show: {
+						operation: ['UPLOAD'],
+					},
+				},
+			},
+			{
+				displayName: 'Entity Schema Name',
+				name: 'entitySchemaName',
+				type: 'string',
+				default: '',
+				required: true,
+				placeholder: 'ContactFile',
+				description: 'The Creatio file entity schema, e.g. ContactFile, AccountFile or SysFile',
+				displayOptions: {
+					show: {
+						operation: ['UPLOAD'],
+					},
+				},
+			},
+			{
+				displayName: 'Column Name',
+				name: 'columnName',
+				type: 'string',
+				default: 'Data',
+				required: true,
+				description: 'The file data column on the file entity (almost always "Data")',
+				displayOptions: {
+					show: {
+						operation: ['UPLOAD'],
+					},
+				},
+			},
+			{
+				displayName: 'Parent Column Name',
+				name: 'parentColumnName',
+				type: 'string',
+				default: '',
+				required: true,
+				placeholder: 'Contact',
+				description: 'FK column linking the file to its parent record, e.g. Contact or RecordId',
+				displayOptions: {
+					show: {
+						operation: ['UPLOAD'],
+					},
+				},
+			},
+			{
+				displayName: 'Parent Column Value',
+				name: 'parentColumnValue',
+				type: 'string',
+				default: '',
+				required: true,
+				description: 'GUID of the parent record the file attaches to',
+				displayOptions: {
+					show: {
+						operation: ['UPLOAD'],
+					},
+				},
+			},
+			{
+				displayName: 'Options',
+				name: 'uploadOptions',
+				type: 'collection',
+				placeholder: 'Add Option',
+				default: {},
+				displayOptions: {
+					show: {
+						operation: ['UPLOAD'],
+					},
+				},
+				options: [
+					{
+						displayName: 'Additional Params (JSON)',
+						name: 'additionalParams',
+						type: 'json',
+						default: '',
+						description:
+							'JSON string passed as AdditionalParams, e.g. {"RecordSchemaName":"DenCandidate"}',
+					},
+					{
+						displayName: 'File ID',
+						name: 'fileId',
+						type: 'string',
+						default: '',
+						description: 'GUID for the file. Leave empty to auto-generate a new GUID for a new upload.',
+					},
+					{
+						displayName: 'File Name',
+						name: 'fileName',
+						type: 'string',
+						default: '',
+						description: 'Override the file name. Defaults to the binary metadata fileName.',
+					},
+					{
+						displayName: 'MIME Type',
+						name: 'mimeType',
+						type: 'string',
+						default: '',
+						description: 'Override the MIME type. Defaults to the binary metadata mimeType.',
+					},
+				],
+			},
+
+			// ----------------------------------
+			//         DOWNLOAD FILE
+			// ----------------------------------
+			{
+				displayName: 'Entity Schema Name',
+				name: 'entitySchemaName',
+				type: 'string',
+				default: '',
+				required: true,
+				placeholder: 'ContactFile',
+				description: 'The Creatio file entity schema, e.g. ContactFile, AccountFile or SysFile',
+				displayOptions: {
+					show: {
+						operation: ['DOWNLOAD'],
+					},
+				},
+			},
+			{
+				displayName: 'File ID',
+				name: 'fileId',
+				type: 'string',
+				default: '',
+				required: true,
+				description: 'GUID of the file record to download',
+				displayOptions: {
+					show: {
+						operation: ['DOWNLOAD'],
+					},
+				},
+			},
+			{
+				displayName: 'Put Output File in Field',
+				name: 'binaryPropertyName',
+				type: 'string',
+				default: 'data',
+				required: true,
+				description: 'Name of the binary property to write the downloaded file to',
+				displayOptions: {
+					show: {
+						operation: ['DOWNLOAD'],
+					},
+				},
+			},
+			{
+				displayName: 'Options',
+				name: 'downloadOptions',
+				type: 'collection',
+				placeholder: 'Add Option',
+				default: {},
+				displayOptions: {
+					show: {
+						operation: ['DOWNLOAD'],
+					},
+				},
+				options: [
+					{
+						displayName: 'File Name',
+						name: 'fileName',
+						type: 'string',
+						default: '',
+						description:
+							'Override the saved file name. Defaults to the name returned by Creatio.',
+					},
+				],
+			},
+
+			// ----------------------------------
 			//     GENERIC - Tool specialized
 			// ----------------------------------
 			//{
@@ -763,6 +962,103 @@ export class Creatio implements INodeType {
 							response = { deleted: true };
 						}
 						break;
+					}
+					case 'UPLOAD': {
+						const binaryPropertyName = this.getNodeParameter('binaryPropertyName', i) as string;
+						const entitySchemaName = this.getNodeParameter('entitySchemaName', i) as string;
+						const columnName = this.getNodeParameter('columnName', i, 'Data') as string;
+						const parentColumnName = this.getNodeParameter('parentColumnName', i) as string;
+						const parentColumnValue = this.getNodeParameter('parentColumnValue', i) as string;
+						const uploadOptions = this.getNodeParameter('uploadOptions', i, {}) as IDataObject;
+
+						const binaryData = this.helpers.assertBinaryData(i, binaryPropertyName);
+						const buffer = await this.helpers.getBinaryDataBuffer(i, binaryPropertyName);
+
+						const fileName =
+							(uploadOptions.fileName as string) || binaryData.fileName || 'file';
+						const mimeType =
+							(uploadOptions.mimeType as string) ||
+							binaryData.mimeType ||
+							'application/octet-stream';
+						const fileId = (uploadOptions.fileId as string) || randomUUID();
+						const rawAdditional = uploadOptions.additionalParams;
+						const additionalParams =
+							rawAdditional === undefined || rawAdditional === null || rawAdditional === ''
+								? undefined
+								: typeof rawAdditional === 'string'
+									? rawAdditional
+									: JSON.stringify(rawAdditional);
+
+						response = await creatioFileUploadRequest.call(
+							this,
+							authentication,
+							{
+								fileId,
+								totalFileLength: buffer.length,
+								mimeType,
+								fileName,
+								columnName,
+								entitySchemaName,
+								parentColumnName,
+								parentColumnValue,
+								additionalParams,
+							},
+							buffer,
+							{ itemIndex: i },
+						);
+
+						if (response === '' || response === undefined || response === null) {
+							response = { success: true, fileId };
+						} else if (typeof response === 'string') {
+							try {
+								response = JSON.parse(response);
+							} catch {
+								response = { raw: response };
+							}
+							(response as IDataObject).fileId ??= fileId;
+						} else {
+							(response as IDataObject).fileId ??= fileId;
+						}
+						break;
+					}
+					case 'DOWNLOAD': {
+						const entitySchemaName = this.getNodeParameter('entitySchemaName', i) as string;
+						const fileId = this.getNodeParameter('fileId', i) as string;
+						const binaryPropertyName = this.getNodeParameter('binaryPropertyName', i) as string;
+						const downloadOptions = this.getNodeParameter(
+							'downloadOptions',
+							i,
+							{},
+						) as IDataObject;
+
+						const full = await creatioFileDownloadRequest.call(
+							this,
+							authentication,
+							entitySchemaName,
+							fileId,
+							{ itemIndex: i },
+						);
+
+						const buffer = Buffer.from(full.body as Buffer);
+						const headers = (full.headers ?? {}) as IDataObject;
+						const contentDisposition = (headers['content-disposition'] as string) || '';
+						const dispositionName = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(
+							contentDisposition,
+						);
+						const fileName =
+							(downloadOptions.fileName as string) ||
+							(dispositionName ? decodeURIComponent(dispositionName[1]) : '') ||
+							fileId;
+						const mimeType =
+							(headers['content-type'] as string) || 'application/octet-stream';
+
+						const binary = await this.helpers.prepareBinaryData(buffer, fileName, mimeType);
+						returnData.push({
+							json: { fileId, fileName, mimeType },
+							binary: { [binaryPropertyName]: binary },
+							pairedItem: { item: i },
+						});
+						continue;
 					}
 					default:
 						throw new NodeOperationError(

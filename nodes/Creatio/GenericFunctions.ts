@@ -182,3 +182,140 @@ export async function creatioApiRequest(
 		throw mapCreatioError(this.getNode(), error, options.itemIndex);
 	}
 }
+
+export interface CreatioFileUploadParams {
+	fileId: string;
+	totalFileLength: number;
+	mimeType: string;
+	fileName: string;
+	columnName: string;
+	entitySchemaName: string;
+	parentColumnName: string;
+	parentColumnValue: string;
+	additionalParams?: string;
+}
+
+// Uploads a binary file via Creatio's FileApiService (single-request: the whole file in one POST).
+// This is a different API surface than OData (/0/rest/ vs /0/odata/), with a raw Buffer body and
+// Content-Range / Content-Disposition headers, so it does not reuse creatioApiRequest.
+export async function creatioFileUploadRequest(
+	this: IExecuteFunctions,
+	authentication: CreatioAuthentication,
+	params: CreatioFileUploadParams,
+	body: Buffer,
+	options: { itemIndex?: number } = {},
+): Promise<any> {
+	const baseUrl = await getCreatioBaseUrl(this, authentication);
+
+	const qs = new URLSearchParams({
+		fileId: params.fileId,
+		totalFileLength: String(params.totalFileLength),
+		mimeType: params.mimeType,
+		fileName: params.fileName,
+		columnName: params.columnName,
+		entitySchemaName: params.entitySchemaName,
+		parentColumnName: params.parentColumnName,
+		parentColumnValue: params.parentColumnValue,
+	});
+	if (params.additionalParams) {
+		qs.append('AdditionalParams', params.additionalParams);
+	}
+	const url = `${baseUrl}/0/rest/FileApiService/UploadFile?${qs.toString()}`;
+
+	const fileHeaders = {
+		'Content-Range': `bytes 0-${params.totalFileLength - 1}/${params.totalFileLength}`,
+		'Content-Type': params.mimeType,
+		'Content-Disposition': `attachment; filename=${params.fileName}`,
+	};
+
+	try {
+		if (authentication === 'oAuth2') {
+			const requestOptions: IHttpRequestOptions = {
+				method: 'POST',
+				url,
+				headers: { Accept: 'application/json', ...fileHeaders },
+				body,
+				json: false,
+			};
+			return await this.helpers.httpRequestWithAuthentication.call(
+				this,
+				'creatioOAuth2Api',
+				requestOptions,
+			);
+		}
+
+		const { cookieHeader, csrfToken } = await getCreatioLegacySession(this, baseUrl);
+		const requestOptions: IHttpRequestOptions = {
+			method: 'POST',
+			url,
+			headers: {
+				Accept: 'application/json',
+				Cookie: cookieHeader,
+				BPMCSRF: csrfToken,
+				...fileHeaders,
+			},
+			body,
+			json: false,
+		};
+		return await this.helpers.httpRequest(requestOptions);
+	} catch (error) {
+		if (error instanceof NodeApiError) {
+			// eslint-disable-next-line @n8n/community-nodes/require-node-api-error -- already a NodeApiError; re-throwing unchanged
+			throw error;
+		}
+		throw mapCreatioError(this.getNode(), error, options.itemIndex);
+	}
+}
+
+// Downloads a file from Creatio's FileService and returns the full HTTP response so the caller can
+// read the raw bytes (body), Content-Type and Content-Disposition headers. Note: the download
+// endpoint lives under FileService, not FileApiService.
+export async function creatioFileDownloadRequest(
+	this: IExecuteFunctions,
+	authentication: CreatioAuthentication,
+	entitySchemaName: string,
+	fileId: string,
+	options: { itemIndex?: number } = {},
+): Promise<any> {
+	const baseUrl = await getCreatioBaseUrl(this, authentication);
+	const url = `${baseUrl}/0/rest/FileService/Download/${encodeURIComponent(
+		entitySchemaName,
+	)}/${encodeURIComponent(fileId)}`;
+
+	try {
+		if (authentication === 'oAuth2') {
+			const requestOptions: IHttpRequestOptions = {
+				method: 'GET',
+				url,
+				encoding: 'arraybuffer',
+				returnFullResponse: true,
+				json: false,
+			};
+			return await this.helpers.httpRequestWithAuthentication.call(
+				this,
+				'creatioOAuth2Api',
+				requestOptions,
+			);
+		}
+
+		const { cookieHeader, csrfToken } = await getCreatioLegacySession(this, baseUrl);
+		const requestOptions: IHttpRequestOptions = {
+			method: 'GET',
+			url,
+			headers: {
+				Cookie: cookieHeader,
+				BPMCSRF: csrfToken,
+			},
+			encoding: 'arraybuffer',
+			returnFullResponse: true,
+			json: false,
+		};
+		return await this.helpers.httpRequest(requestOptions);
+	} catch (error) {
+		if (error instanceof NodeApiError) {
+			// eslint-disable-next-line @n8n/community-nodes/require-node-api-error -- already a NodeApiError; re-throwing unchanged
+			throw error;
+		}
+		throw mapCreatioError(this.getNode(), error, options.itemIndex);
+	}
+}
