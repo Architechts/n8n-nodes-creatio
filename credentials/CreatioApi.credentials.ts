@@ -52,5 +52,15 @@ export class CreatioApi implements ICredentialType {
 			},
 			json: true,
 		},
+		rules: [
+			{
+				type: 'responseSuccessBody',
+				properties: {
+					key: 'Code',
+					value: 1,
+					message: 'Authentication failed: check your Creatio username and password.',
+				},
+			},
+		],
 	};
 }

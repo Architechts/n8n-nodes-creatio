@@ -7,166 +7,76 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	IExecuteFunctions,
+	INodeExecutionData,
+	IDataObject,
 	NodeConnectionType,
 	ILoadOptionsFunctions,
 	NodeOperationError,
 } from 'n8n-workflow';
 
-// import {
-// 	buildInputSchemaField,
-// 	buildJsonSchemaExampleField,
-// 	buildJsonSchemaExampleNotice,
-// 	schemaTypeField,
-// } from '../../utils/Descriptions';
-
-// Tool usage for specifying input.
-// const jsonSchemaExampleField = buildJsonSchemaExampleField({
-// 	showExtraProps: { specifyInputSchema: [true] },
-// });
-	 
-// const jsonSchemaExampleNotice = buildJsonSchemaExampleNotice({
-// 	showExtraProps: {
-// 		specifyInputSchema: [true],
-// 		'@version': [{ _cnd: { gte: 1.3 } }],
-// 	},
-// });
-	 
-// const jsonSchemaField = buildInputSchemaField({ showExtraProps: { specifyInputSchema: [true] } });
+import { creatioApiRequest, CreatioAuthentication } from './GenericFunctions';
 
 export class Creatio implements INodeType {
-	// Extracted authentication helper as a static method
-	static async authenticateAndGetCookies(context: ILoadOptionsFunctions | IExecuteFunctions, credentials: any) {
-		let creatioUrl = credentials.creatioUrl as string;
-		const username = credentials.username as string;
-		const password = credentials.password as string;
-		creatioUrl = creatioUrl.trim().replace(/\/$/, '');
-		let authResponse;
-		try {
-			authResponse = await context.helpers.request({
-				resolveWithFullResponse: true,
-				method: 'POST',
-				url: `${creatioUrl}/ServiceModel/AuthService.svc/Login`,
-				headers: {
-					Accept: 'application/json',
-					'Content-Type': 'application/json',
-					ForceUseSession: 'true',
-				},
-				body: {
-					UserName: username,
-					UserPassword: password,
-				},
-				json: true,
-				maxRedirects: 5,
-			});
-		} catch (error: any) {
-			throw new NodeOperationError(
-				context.getNode(),
-				`Failed to authenticate with Creatio: ${error.message}`,
-			);
-		}
-		const cookies = authResponse.headers['set-cookie'];
-		const authCookie = cookies.find((c: string) => c.startsWith('.ASPXAUTH='));
-		const csrfCookie = cookies.find((c: string) => c.startsWith('BPMCSRF='));
-		const bpmLoader = cookies.find((c: string) => c.startsWith('BPMLOADER='));
-		const sessionIdCookie = cookies.find((c: string) => c.startsWith('BPMSESSIONID='));
-		const userType = 'UserType=General';
-		return {
-			cookies,
-			authCookie,
-			csrfCookie,
-			bpmLoader,
-			sessionIdCookie,
-			userType,
-			creatioUrl,
-		};
-	}
 	methods = {
 		loadOptions: {
 			async getODataEntities(this: ILoadOptionsFunctions) {
-				try {
-					const credentials = await this.getCredentials('creatioApi');
-					const {
-						authCookie,
-						csrfCookie,
-						creatioUrl,
-					} = await Creatio.authenticateAndGetCookies(this, credentials);
-					const cookieHeaderVal = [authCookie?.split(';')[0], csrfCookie?.split(';')[0]]
-						.filter(Boolean)
-						.join('; ');
-					const csrfTokenVal = csrfCookie?.split('=')[1] || '';
-					const metadataXml = await this.helpers.request({
-						method: 'GET',
-						url: `${creatioUrl}/0/odata/$metadata`,
-						headers: {
-							Accept: 'application/xml',
-							Cookie: cookieHeaderVal,
-							BPMCSRF: csrfTokenVal,
-						},
-					});
-					const entityNames: string[] = [];
-					const entityTypeRegex = /<EntityType Name="([^"]+)"/g;
-					let match;
-					while ((match = entityTypeRegex.exec(metadataXml)) !== null) {
-						entityNames.push(match[1]);
-					}
-					return entityNames.map((name) => ({
-						name,
-						value: name,
-					}));
-				} catch (error: any) {
-					throw new NodeOperationError(
-						this.getNode(),
-						`Failed to load OData entities: ${error.message}`,
-					);
+				const authentication = this.getNodeParameter(
+					'authentication',
+					'oAuth2',
+				) as CreatioAuthentication;
+				const metadataXml = (await creatioApiRequest.call(
+					this,
+					authentication,
+					'GET',
+					'/0/odata/$metadata',
+					undefined,
+					{ json: false, accept: 'application/xml' },
+				)) as string;
+
+				const entityNames: string[] = [];
+				const entityTypeRegex = /<EntityType Name="([^"]+)"/g;
+				let match;
+				while ((match = entityTypeRegex.exec(metadataXml)) !== null) {
+					entityNames.push(match[1]);
 				}
+				return entityNames.map((name) => ({ name, value: name }));
 			},
 			async getODataEntityFields(this: ILoadOptionsFunctions) {
-				try {
-					const credentials = await this.getCredentials('creatioApi');
-					const {
-						authCookie,
-						csrfCookie,
-						creatioUrl,
-					} = await Creatio.authenticateAndGetCookies(this, credentials);
-					const cookieHeader = [authCookie?.split(';')[0], csrfCookie?.split(';')[0]]
-						.filter(Boolean)
-						.join('; ');
-					const csrfToken = csrfCookie?.split('=')[1] || '';
-					const subpath = this.getCurrentNodeParameter('subpath') as string;
-					if (!subpath) {
-						return [];
-					}
-					const metadataXml = await this.helpers.request({
-						method: 'GET',
-						url: `${creatioUrl}/0/odata/$metadata`,
-						headers: {
-							Accept: 'application/xml',
-							Cookie: cookieHeader,
-							BPMCSRF: csrfToken,
-						},
-					});
-					const entityRegex = new RegExp(`<EntityType Name="${subpath}"[\\s\\S]*?<\\/EntityType>`, 'g');
-					const entityMatch = entityRegex.exec(metadataXml);
-					if (!entityMatch) {
-						return [];
-					}
-					const entityXml = entityMatch[0];
-					const propertyRegex = /<Property Name="([^"]+)"/g;
-					const fields: { name: string; value: string }[] = [];
-					let match;
-					while ((match = propertyRegex.exec(entityXml)) !== null) {
-						fields.push({ name: match[1], value: match[1] });
-					}
-					return fields;
-				} catch (error: any) {
-					throw new NodeOperationError(
-						this.getNode(),
-						`Failed to load OData entity fields: ${error.message}`,
-					);
+				const subpath = this.getCurrentNodeParameter('subpath') as string;
+				if (!subpath) {
+					return [];
 				}
+				const authentication = this.getNodeParameter(
+					'authentication',
+					'oAuth2',
+				) as CreatioAuthentication;
+				const metadataXml = (await creatioApiRequest.call(
+					this,
+					authentication,
+					'GET',
+					'/0/odata/$metadata',
+					undefined,
+					{ json: false, accept: 'application/xml' },
+				)) as string;
+
+				const entityRegex = new RegExp(
+					`<EntityType Name="${subpath}"[\\s\\S]*?<\\/EntityType>`,
+					'g',
+				);
+				const entityMatch = entityRegex.exec(metadataXml);
+				if (!entityMatch) {
+					return [];
+				}
+				const propertyRegex = /<Property Name="([^"]+)"/g;
+				const fields: { name: string; value: string }[] = [];
+				let match;
+				while ((match = propertyRegex.exec(entityMatch[0])) !== null) {
+					fields.push({ name: match[1], value: match[1] });
+				}
+				return fields;
 			},
-		}
-	}
+		},
+	};
 	description: INodeTypeDescription = {
 		displayName: 'Creatio',
 		name: 'creatio',
@@ -174,7 +84,8 @@ export class Creatio implements INodeType {
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
-		description: 'Consume Creatio API',
+		description:
+			'Read and write records in Creatio CRM (contacts, accounts, leads, opportunities, custom objects) via OData. Use to look up, create, update, or delete Creatio CRM data.',
 		defaults: {
 			name: 'Creatio',
 		},
@@ -182,12 +93,43 @@ export class Creatio implements INodeType {
 		outputs: ['main'] as NodeConnectionType[],
 		credentials: [
 			{
+				name: 'creatioOAuth2Api',
+				required: true,
+				displayOptions: {
+					show: {
+						authentication: ['oAuth2'],
+					},
+				},
+			},
+			{
 				name: 'creatioApi',
 				required: true,
+				displayOptions: {
+					show: {
+						authentication: ['usernamePassword'],
+					},
+				},
 			},
 		],
 		usableAsTool: true,
 		properties: [
+			{
+				displayName: 'Authentication',
+				name: 'authentication',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{
+						name: 'OAuth2',
+						value: 'oAuth2',
+					},
+					{
+						name: 'Username & Password',
+						value: 'usernamePassword',
+					},
+				],
+				default: 'oAuth2',
+			},
 			// ----------------------------------
 			//         GENERIC
 			// ----------------------------------
@@ -637,31 +579,33 @@ export class Creatio implements INodeType {
 		],
 	};
 
-	async execute(this: IExecuteFunctions) {
+	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
-		const returnData = [];
+		const returnData: INodeExecutionData[] = [];
+
 		for (let i = 0; i < items.length; i++) {
-			const credentials = await this.getCredentials('creatioApi');
-			const operation = this.getNodeParameter('operation', i) as string;
-			const {
-				authCookie,
-				csrfCookie,
-				bpmLoader,
-				sessionIdCookie,
-				userType,
-				creatioUrl,
-			} = await Creatio.authenticateAndGetCookies(this, credentials);
-			let response;
 			try {
+				const authentication = this.getNodeParameter(
+					'authentication',
+					i,
+					'oAuth2',
+				) as CreatioAuthentication;
+				const operation = this.getNodeParameter('operation', i) as string;
+				let response: any;
+
 				switch (operation) {
 					case 'GET': {
 						const subpath = this.getNodeParameter('subpath', i) as string;
 						const selectParam = this.getNodeParameter('select', i) as string[] | string;
-						const select = Array.isArray(selectParam) ? selectParam : (selectParam ? selectParam.split(',').map(s => s.trim()) : []);
+						const select = Array.isArray(selectParam)
+							? selectParam
+							: selectParam
+								? selectParam.split(',').map((s) => s.trim())
+								: [];
 						const top = this.getNodeParameter('top', i) as number;
 						const filter = this.getNodeParameter('filter', i) as string;
 						const expand = this.getNodeParameter('expand', i) as string;
-						let url = `${creatioUrl}/0/odata/${subpath}`;
+
 						const queryParams: string[] = [];
 						if (select && select.length > 0) {
 							queryParams.push(`$select=${encodeURIComponent(select.join(','))}`);
@@ -675,246 +619,195 @@ export class Creatio implements INodeType {
 						if (expand) {
 							queryParams.push(`$expand=${encodeURIComponent(expand)}`);
 						}
+						let endpoint = `/0/odata/${subpath}`;
 						if (queryParams.length > 0) {
-							url += `?${queryParams.join('&')}`;
+							endpoint += `?${queryParams.join('&')}`;
 						}
-						const cookieHeader = [authCookie?.split(';')[0], csrfCookie?.split(';')[0], bpmLoader?.split(';')[0], userType]
-							.filter(Boolean)
-							.join('; ');
-						const csrfToken = csrfCookie?.split('=')[1];
-						response = await this.helpers.request({
-							method: 'GET',
-							url,
-							headers: {
-								Accept: 'application/json',
-								'Content-Type': 'application/json',
-								Cookie: cookieHeader,
-								BPMCSRF: csrfToken,
-							},
-							json: true,
+
+						response = await creatioApiRequest.call(this, authentication, 'GET', endpoint, undefined, {
+							itemIndex: i,
 						});
-						
-						if (!subpath && response.value) {
-							response = response.value.map((item: any) => ({ tableName: item.name }));
-						} else if (response.value) {
+						if (response && response.value) {
 							response = response.value;
 						}
-						
 						break;
 					}
 					case 'METADATA': {
 						const subpath = this.getNodeParameter('subpath', i) as string;
-						let url = `${creatioUrl}/0/odata/$metadata`;
-						const cookieHeader = [authCookie?.split(';')[0], csrfCookie?.split(';')[0], bpmLoader?.split(';')[0], userType]
-							.filter(Boolean)
-							.join('; ');
-						const csrfToken = csrfCookie?.split('=')[1];
-						response = await this.helpers.request({
-							method: 'GET',
-							url: url,
-							headers: {
-								Accept: 'application/xml',
-								Cookie: cookieHeader,
-								BPMCSRF: csrfToken,
-							},
-						});
+						const metadataXml = (await creatioApiRequest.call(
+							this,
+							authentication,
+							'GET',
+							'/0/odata/$metadata',
+							undefined,
+							{ json: false, accept: 'application/xml', itemIndex: i },
+						)) as string;
 
-						const entityRegex = new RegExp(`<EntityType Name="${subpath}"[\\s\\S]*?<\\/EntityType>`, 'g');
-						const entityMatch = entityRegex.exec(response);
-						if (!entityMatch) {
-							response = [];
+						const entityRegex = new RegExp(
+							`<EntityType Name="${subpath}"[\\s\\S]*?<\\/EntityType>`,
+							'g',
+						);
+						const entityMatch = entityRegex.exec(metadataXml);
+						const fields: { fieldName: string }[] = [];
+						if (entityMatch) {
+							const propertyRegex = /<Property Name="([^"]+)"/g;
+							let match;
+							while ((match = propertyRegex.exec(entityMatch[0])) !== null) {
+								fields.push({ fieldName: match[1] });
+							}
 						}
-
-						const entityXml = entityMatch![0];
-						const propertyRegex = /<Property Name="([^"]+)"/g;
-						const fields: { name: string; value: string }[] = [];
-						let match;
-						while ((match = propertyRegex.exec(entityXml)) !== null) {
-							fields.push({ name: match[1], value: match[1] });
-						}
-
-						var mappedFields = fields.map((item: any) => ({ fieldName: item.name }));
-						response = mappedFields;
-
+						response = fields;
 						break;
 					}
 					case 'TABLES': {
-						let url = `${creatioUrl}/0/odata/`;
-						const cookieHeader = [authCookie?.split(';')[0], csrfCookie?.split(';')[0], bpmLoader?.split(';')[0], userType]
-							.filter(Boolean)
-							.join('; ');
-						const csrfToken = csrfCookie?.split('=')[1];
-						response = await this.helpers.request({
-							method: 'GET',
-							url,
-							headers: {
-								Accept: 'application/json',
-								'Content-Type': 'application/json',
-								Cookie: cookieHeader,
-								BPMCSRF: csrfToken,
-							},
-							json: true,
-						});
-
-						response = response.value
+						const result = await creatioApiRequest.call(
+							this,
+							authentication,
+							'GET',
+							'/0/odata/',
+							undefined,
+							{ itemIndex: i },
+						);
+						response = (result.value || [])
 							.filter((item: any) => {
-								const name = item.name.toLowerCase();
-								return !name.startsWith('vw') && !name.startsWith('sys') && !name.startsWith('oauth') && !name.startsWith('web');
+								const name = (item.name as string).toLowerCase();
+								return (
+									!name.startsWith('vw') &&
+									!name.startsWith('sys') &&
+									!name.startsWith('oauth') &&
+									!name.startsWith('web')
+								);
 							})
 							.map((item: any) => ({ tableName: item.name }));
-						
 						break;
 					}
 					case 'POST': {
-						const cookieHeader = [
-							sessionIdCookie?.split(';')[0],
-							authCookie?.split(';')[0],
-							csrfCookie?.split(';')[0],
-							bpmLoader?.split(';')[0],
-							userType
-						].filter(Boolean).join('; ');
-						const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
 						const subpath = this.getNodeParameter('subpath', i) as string;
 						const useBody = this.getNodeParameter('useBody', i, false) as boolean;
-						
-						let requestBody: any = {};
+						let requestBody: IDataObject = {};
 						if (useBody) {
-							requestBody = this.getNodeParameter('body', i) as object;
+							requestBody = this.getNodeParameter('body', i) as IDataObject;
 						} else {
-							const fields = this.getNodeParameter('fields', i, []) as { field: { fieldName: string, fieldValue: string }[] };
+							const fields = this.getNodeParameter('fields', i, {}) as {
+								field?: { fieldName: string; fieldValue: string }[];
+							};
 							if (fields.field) {
 								for (const fieldData of fields.field) {
 									requestBody[fieldData.fieldName] = fieldData.fieldValue;
 								}
 							}
 						}
-						
-						let url = `${creatioUrl}/0/odata/${subpath}`;
-						response = await this.helpers.request({
-							method: 'POST',
-							url,
-							headers: {
-								Accept: '*/*',
-								'Content-Type': 'application/json',
-								Cookie: cookieHeader,
-								BPMCSRF: csrfToken,
-							},
-							body: requestBody,
-							json: true,
-						});
+						response = await creatioApiRequest.call(
+							this,
+							authentication,
+							'POST',
+							`/0/odata/${subpath}`,
+							requestBody,
+							{ accept: '*/*', itemIndex: i },
+						);
 						break;
 					}
 					case 'PATCH': {
-						const cookieHeader = [
-							sessionIdCookie?.split(';')[0],
-							authCookie?.split(';')[0],
-							csrfCookie?.split(';')[0],
-							bpmLoader?.split(';')[0],
-							userType
-						].filter(Boolean).join('; ');
-						const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
 						const subpath = this.getNodeParameter('subpath', i) as string;
 						const id = this.getNodeParameter('id', i, '') as string;
 						const useBody = this.getNodeParameter('useBody', i, false) as boolean;
-						
-						let requestBody: any = {};
+						let requestBody: IDataObject = {};
 						if (useBody) {
-							requestBody = this.getNodeParameter('body', i) as object;
+							requestBody = this.getNodeParameter('body', i) as IDataObject;
 						} else {
-							const fields = this.getNodeParameter('fields', i, []) as { field: { fieldName: string, fieldValue: string }[] };
+							const fields = this.getNodeParameter('fields', i, {}) as {
+								field?: { fieldName: string; fieldValue: string }[];
+							};
 							if (fields.field) {
 								for (const fieldData of fields.field) {
-									if (fieldData.fieldValue !== '' && fieldData.fieldValue !== null && fieldData.fieldValue !== undefined) {
+									if (
+										fieldData.fieldValue !== '' &&
+										fieldData.fieldValue !== null &&
+										fieldData.fieldValue !== undefined
+									) {
 										requestBody[fieldData.fieldName] = fieldData.fieldValue;
 									}
 								}
 							}
 						}
-						
-						let url = `${creatioUrl}/0/odata/${subpath}`;
+						let endpoint = `/0/odata/${subpath}`;
 						if (id) {
-							url = `${creatioUrl}/0/odata/${subpath}(${id})`;
+							endpoint = `/0/odata/${subpath}(${id})`;
 						}
-						response = await this.helpers.request({
-							method: 'PATCH',
-							url,
-							headers: {
-								Accept: '*/*',
-								'Content-Type': 'application/json',
-								Cookie: cookieHeader,
-								BPMCSRF: csrfToken,
-							},
-							body: requestBody,
-							json: true,
-						});
+						response = await creatioApiRequest.call(
+							this,
+							authentication,
+							'PATCH',
+							endpoint,
+							requestBody,
+							{ accept: '*/*', itemIndex: i },
+						);
 						break;
 					}
 					case 'DELETE': {
-						const cookieHeader = [
-							sessionIdCookie?.split(';')[0],
-							authCookie?.split(';')[0],
-							csrfCookie?.split(';')[0],
-							bpmLoader?.split(';')[0],
-							userType
-						].filter(Boolean).join('; ');
-						const csrfToken = csrfCookie?.split('=')[1]?.split(';')[0] || '';
 						const subpath = this.getNodeParameter('subpath', i) as string;
 						const id = this.getNodeParameter('id', i, '') as string;
-						let url = `${creatioUrl}/0/odata/${subpath}`;
+						let endpoint = `/0/odata/${subpath}`;
 						if (id) {
-							url = `${creatioUrl}/0/odata/${subpath}(${id})`;
+							endpoint = `/0/odata/${subpath}(${id})`;
 						}
-						response = await this.helpers.request({
-							method: 'DELETE',
-							url,
-							headers: {
-								Accept: '*/*',
-								'Content-Type': 'application/json',
-								Cookie: cookieHeader,
-								BPMCSRF: csrfToken,
-							},
-							json: true,
-						});
-
-						// Return a meaningfull message after delete. 
-						if (response === '') {
-							response = { "deleted": true };
+						response = await creatioApiRequest.call(
+							this,
+							authentication,
+							'DELETE',
+							endpoint,
+							undefined,
+							{ accept: '*/*', itemIndex: i },
+						);
+						if (response === '' || response === undefined || response === null) {
+							response = { deleted: true };
 						}
-
 						break;
 					}
+					default:
+						throw new NodeOperationError(
+							this.getNode(),
+							`Unsupported operation: ${operation}`,
+							{ itemIndex: i },
+						);
 				}
-			} catch (error: any) {
-				if (error.statusCode === 401) {
-					response = [];
-				} else {
-					throw error;
-				}
-			}
-			
-			const appendRequest = this.getNodeParameter('appendRequest', i, false) as boolean;
-			if (appendRequest && ['GET', 'POST', 'PATCH'].includes(operation)) {
-				const requestFields: any = { operation };
-				if (['GET', 'POST', 'PATCH'].includes(operation)) {
+
+				const appendRequest = this.getNodeParameter('appendRequest', i, false) as boolean;
+				if (appendRequest && ['GET', 'POST', 'PATCH'].includes(operation)) {
+					const requestFields: IDataObject = { operation };
 					requestFields.subpath = this.getNodeParameter('subpath', i, '');
+					if (operation === 'GET') {
+						requestFields.select = this.getNodeParameter('select', i, []);
+						requestFields.top = this.getNodeParameter('top', i, 10);
+						requestFields.filter = this.getNodeParameter('filter', i, '');
+						requestFields.expand = this.getNodeParameter('expand', i, '');
+					}
+					if (operation === 'PATCH') {
+						requestFields.id = this.getNodeParameter('id', i, '');
+					}
+					if (['POST', 'PATCH'].includes(operation)) {
+						requestFields.body = this.getNodeParameter('body', i, {});
+					}
+					returnData.push({ json: { ...requestFields, response }, pairedItem: { item: i } });
+				} else if (Array.isArray(response)) {
+					for (const entry of response) {
+						returnData.push({ json: entry as IDataObject, pairedItem: { item: i } });
+					}
+				} else {
+					returnData.push({ json: (response ?? {}) as IDataObject, pairedItem: { item: i } });
 				}
-				if (operation === 'GET') {
-					requestFields.select = this.getNodeParameter('select', i, []);
-					requestFields.top = this.getNodeParameter('top', i, 10);
-					requestFields.filter = this.getNodeParameter('filter', i, '');
-					requestFields.expand = this.getNodeParameter('expand', i, '');
+			} catch (error) {
+				if (this.continueOnFail()) {
+					returnData.push({
+						json: { error: (error as Error).message },
+						pairedItem: { item: i },
+					});
+					continue;
 				}
-				if (operation === 'PATCH') {
-					requestFields.id = this.getNodeParameter('id', i, '');
-				}
-				if (['POST', 'PATCH'].includes(operation)) {
-					requestFields.body = this.getNodeParameter('body', i, {});
-				}
-				returnData.push({ ...requestFields, response });
-			} else {
-				returnData.push(response);
+				throw error;
 			}
 		}
-		return [this.helpers.returnJsonArray(returnData)];
+
+		return [returnData];
 	}
 }

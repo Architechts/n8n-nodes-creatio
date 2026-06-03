@@ -57,6 +57,26 @@ Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes
 Authentication is required. Store your Creatio API credentials securely in n8n before using the node.
 It is possible that the selected user is not allowed to delete records.
 
+### Using this node as an AI Agent tool
+
+This node is exposed to the n8n AI Agent (`usableAsTool`). To make community nodes available as Agent tools, the n8n instance must be started with:
+
+```
+N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
+```
+
+This is a deployment setting on the n8n host (it cannot be configured from inside the package).
+
+### OAuth2 (recommended)
+
+Set **Authentication** to **OAuth2** and create a *Creatio OAuth2 API* credential:
+
+- **Creatio URL** — your instance base URL, e.g. `https://your-instance.creatio.com`
+- **Access Token URL** — the Identity Service token endpoint, e.g. `https://your-instance-is.creatio.com/connect/token`
+- **Client ID** / **Client Secret** — from the OAuth client registered in Creatio
+
+n8n fetches and refreshes the access token automatically. Legacy username/password authentication remains available by setting **Authentication** to **Username & Password**.
+
 ### Input
 
 The node accepts:
