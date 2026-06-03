@@ -17,6 +17,13 @@ function makeExecuteMock(params: Record<string, any>) {
 		helpers: {
 			httpRequest: jest.fn(),
 			httpRequestWithAuthentication: jest.fn(),
+			assertBinaryData: jest
+				.fn()
+				.mockReturnValue({ fileName: 'a.txt', mimeType: 'text/plain' }),
+			getBinaryDataBuffer: jest.fn().mockResolvedValue(Buffer.from('hello')),
+			prepareBinaryData: jest
+				.fn()
+				.mockResolvedValue({ data: 'aGVsbG8=', fileName: 'a.txt', mimeType: 'text/plain' }),
 		},
 	} as unknown as IExecuteFunctions;
 }
@@ -89,6 +96,83 @@ describe('Creatio Node', () => {
 		});
 
 		await expect(creatioNode.execute.call(ctx)).rejects.toThrow('Unsupported operation: BOGUS');
+	});
+
+	test('UPLOAD reads binary and calls FileApiService with an auto-generated GUID', async () => {
+		const ctx = makeExecuteMock({
+			authentication: 'oAuth2',
+			operation: 'UPLOAD',
+			binaryPropertyName: 'data',
+			entitySchemaName: 'ContactFile',
+			columnName: 'Data',
+			parentColumnName: 'Contact',
+			parentColumnValue: 'PARENT-GUID',
+			uploadOptions: {},
+		});
+		(ctx.helpers.httpRequestWithAuthentication as jest.Mock).mockResolvedValue({ success: true });
+
+		const result = await creatioNode.execute.call(ctx);
+
+		const opts = (ctx.helpers.httpRequestWithAuthentication as jest.Mock).mock.calls[0][1];
+		expect(opts.url).toContain('/0/rest/FileApiService/UploadFile');
+		expect(opts.url).toMatch(/fileId=[0-9a-f-]{36}/);
+		expect(opts.headers['Content-Range']).toBe('bytes 0-4/5');
+		expect(result[0][0].json.fileId).toMatch(/[0-9a-f-]{36}/);
+	});
+
+	test('UPLOAD honours fileId / fileName / mimeType / additionalParams overrides', async () => {
+		const ctx = makeExecuteMock({
+			authentication: 'oAuth2',
+			operation: 'UPLOAD',
+			binaryPropertyName: 'data',
+			entitySchemaName: 'ContactFile',
+			columnName: 'Data',
+			parentColumnName: 'Contact',
+			parentColumnValue: 'PARENT-GUID',
+			uploadOptions: {
+				fileId: 'my-guid',
+				fileName: 'override.pdf',
+				mimeType: 'application/pdf',
+				additionalParams: '{"RecordSchemaName":"DenCandidate"}',
+			},
+		});
+		(ctx.helpers.httpRequestWithAuthentication as jest.Mock).mockResolvedValue({ success: true });
+
+		const result = await creatioNode.execute.call(ctx);
+
+		const opts = (ctx.helpers.httpRequestWithAuthentication as jest.Mock).mock.calls[0][1];
+		expect(opts.url).toContain('fileId=my-guid');
+		expect(opts.url).toContain('fileName=override.pdf');
+		expect(opts.headers['Content-Type']).toBe('application/pdf');
+		expect(decodeURIComponent(opts.url)).toContain('{"RecordSchemaName":"DenCandidate"}');
+		expect(result[0][0].json.fileId).toBe('my-guid');
+	});
+
+	test('DOWNLOAD writes the file to a binary output property', async () => {
+		const ctx = makeExecuteMock({
+			authentication: 'oAuth2',
+			operation: 'DOWNLOAD',
+			entitySchemaName: 'ContactFile',
+			fileId: 'FILE-GUID',
+			binaryPropertyName: 'data',
+			downloadOptions: {},
+		});
+		(ctx.helpers.httpRequestWithAuthentication as jest.Mock).mockResolvedValue({
+			body: Buffer.from('hello'),
+			headers: { 'content-type': 'text/plain', 'content-disposition': 'attachment; filename="cv.txt"' },
+		});
+
+		const result = await creatioNode.execute.call(ctx);
+
+		const opts = (ctx.helpers.httpRequestWithAuthentication as jest.Mock).mock.calls[0][1];
+		expect(opts.url).toBe('https://test.creatio.com/0/rest/FileService/Download/ContactFile/FILE-GUID');
+		expect(result[0][0].binary?.data).toBeDefined();
+		expect(result[0][0].json.fileName).toBe('cv.txt');
+		expect(ctx.helpers.prepareBinaryData).toHaveBeenCalledWith(
+			expect.any(Buffer),
+			'cv.txt',
+			'text/plain',
+		);
 	});
 
 	test('continueOnFail emits an error item instead of throwing', async () => {
