@@ -1,0 +1,15 @@
+{
+	"node": "n8n-nodes-creatio.creatio",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Sales", "Data & Storage"],
+	"alias": ["crm", "creatio", "contact", "account", "lead", "opportunity", "odata"],
+	"resources": {
+		"primaryDocumentation": [
+			{ "url": "https://github.com/Architechts/n8n-nodes-creatio" }
+		],
+		"credentialDocumentation": [
+			{ "url": "https://github.com/Architechts/n8n-nodes-creatio" }
+		]
+	}
+}
