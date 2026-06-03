@@ -42,8 +42,8 @@ export class CreatioOAuth2Api implements ICredentialType {
 			placeholder: 'https://your-instance-is.creatio.com/connect/token',
 			required: true,
 			description:
-				'The Creatio Identity Service token endpoint, e.g. https://your-instance-is.creatio.com/connect/token',
-			hint: 'This is the Identity Service URL, usually different from the Creatio app URL',
+				'The Creatio Identity Service token endpoint. For cloud instances this is your instance host with an "-is" suffix (NOT your main app URL), e.g. https://your-instance-is.creatio.com/connect/token',
+			hint: 'Cloud: add "-is" to your instance subdomain, e.g. acme.creatio.com becomes acme-is.creatio.com. Confirm the exact endpoint at your instance openid-configuration discovery URL.',
 		},
 		{
 			displayName: 'Scope',
