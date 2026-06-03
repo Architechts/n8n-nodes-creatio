@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-creatio",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Connect n8n to Creatio CRM platform. Create, read, update, and delete records in any Creatio entity with dynamic field selection and OData filtering.",
   "keywords": [
     "n8n-community-node-package",
@@ -19,19 +19,19 @@
     "url": "https://github.com/Architechts/n8n-nodes-creatio"
   },
   "engines": {
-    "node": ">=18.10",
-    "pnpm": ">=9.1"
+    "node": ">=22"
   },
   "main": "index.js",
   "scripts": {
-    "build": "tsc && gulp build:icons",
+    "clean": "rimraf dist .tsbuildinfo",
+    "build": "rimraf dist .tsbuildinfo && tsc && gulp build:icons",
     "dev": "tsc --watch",
     "format": "prettier nodes credentials --write",
-    "lint": "eslint nodes credentials package.json",
-    "lintfix": "eslint nodes credentials package.json --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "jest",
     "test:watch": "jest --watch",
-    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes credentials package.json"
+    "prepublishOnly": "npm run build && npm run lint"
   },
   "files": [
     "dist"
@@ -47,16 +47,18 @@
     ]
   },
   "devDependencies": {
-    "@typescript-eslint/parser": "^7.15.0",
+    "@n8n/eslint-plugin-community-nodes": "0.17.0",
     "@types/jest": "^29.5.0",
-    "eslint": "^8.57.1",
-    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "eslint": "^9.29.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.6",
     "gulp": "^4.0.2",
     "jest": "^29.5.0",
     "n8n-workflow": "*",
-    "prettier": "^3.5.3",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
     "ts-jest": "^29.1.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.60.0"
   },
   "peerDependencies": {
     "n8n-workflow": "*"

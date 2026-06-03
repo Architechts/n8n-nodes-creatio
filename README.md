@@ -97,6 +97,27 @@ All fields required
 
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
 
+## Releasing
+
+Releases are published to npm automatically by GitHub Actions with build [provenance](https://docs.npmjs.com/generating-provenance-statements). No npm token is stored in the repository — publishing uses npm's OIDC **Trusted Publisher** mechanism.
+
+### One-time setup (maintainer)
+
+1. On npmjs.com, open the `n8n-nodes-creatio` package → **Settings** → **Trusted Publishers**.
+2. Add a **GitHub Actions** publisher pointing at this repository and the workflow file `.github/workflows/publish.yml` (branch/environment left blank).
+3. Ensure GitHub Actions is enabled for the repository.
+
+### Cutting a release
+
+```bash
+npm version patch        # or: minor / major — bumps package.json, commits, creates a vX.Y.Z tag
+git push --follow-tags   # pushes the commit and the tag
+```
+
+Pushing the `vX.Y.Z` tag triggers `.github/workflows/publish.yml`, which builds and runs `npm publish --provenance --access public`. The published package includes a signed provenance statement.
+
+> Note: the publish workflow triggers on tags matching `v*.*.*`, which is the tag format `npm version` creates by default. If you change `npm version`'s tag prefix, update the trigger in `publish.yml` to match.
+
 ## License
 
 This project is licensed under the **Business Source License 1.1**.

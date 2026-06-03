@@ -804,6 +804,7 @@ export class Creatio implements INodeType {
 					});
 					continue;
 				}
+				// eslint-disable-next-line @n8n/community-nodes/require-node-api-error -- error originates from the transport already wrapped as NodeApiError/NodeOperationError
 				throw error;
 			}
 		}

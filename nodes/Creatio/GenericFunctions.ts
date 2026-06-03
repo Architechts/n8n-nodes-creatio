@@ -176,6 +176,7 @@ export async function creatioApiRequest(
 	} catch (error) {
 		// Re-wrap our own friendly auth errors unchanged; map raw HTTP errors.
 		if (error instanceof NodeApiError) {
+			// eslint-disable-next-line @n8n/community-nodes/require-node-api-error -- already a NodeApiError; re-throwing unchanged
 			throw error;
 		}
 		throw mapCreatioError(this.getNode(), error, options.itemIndex);
