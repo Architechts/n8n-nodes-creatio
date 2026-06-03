@@ -21,12 +21,17 @@ export const CREATIO_AUTH_ERROR_DESCRIPTION =
 	"Your Creatio credentials appear to be invalid or expired. Check the credential's Client ID/Secret (OAuth2) or username/password, then reconnect.";
 
 function getStatusCode(error: any): number | undefined {
-	return (
+	const raw =
 		error?.statusCode ??
 		error?.httpCode ??
 		error?.response?.statusCode ??
-		error?.cause?.statusCode
-	);
+		error?.response?.status ??
+		error?.cause?.statusCode;
+	if (raw === undefined || raw === null) {
+		return undefined;
+	}
+	const code = Number(raw);
+	return Number.isNaN(code) ? undefined : code;
 }
 
 export function mapCreatioError(node: INode, error: any, itemIndex?: number): NodeApiError {
@@ -117,7 +122,7 @@ export async function getCreatioLegacySession(
 		.join('; ');
 
 	const csrfRaw = setCookie.find((c) => c.startsWith('BPMCSRF='));
-	const csrfToken = csrfRaw ? csrfRaw.split('=')[1].split(';')[0] : '';
+	const csrfToken = csrfRaw ? csrfRaw.slice('BPMCSRF='.length).split(';')[0] : '';
 
 	return { cookieHeader, csrfToken };
 }
@@ -173,6 +178,6 @@ export async function creatioApiRequest(
 		if (error instanceof NodeApiError) {
 			throw error;
 		}
-		throw mapCreatioError((this as IExecuteFunctions).getNode(), error, options.itemIndex);
+		throw mapCreatioError(this.getNode(), error, options.itemIndex);
 	}
 }

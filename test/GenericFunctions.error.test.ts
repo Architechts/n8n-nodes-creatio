@@ -32,4 +32,9 @@ describe('mapCreatioError', () => {
 		const err = mapCreatioError(fakeNode, { message: 'weird' });
 		expect(err).toBeInstanceOf(NodeApiError);
 	});
+
+	test('handles a string httpCode (NodeApiError shape) as 401', () => {
+		const err = mapCreatioError(fakeNode, { httpCode: '401', message: 'Unauthorized' });
+		expect(err.message).toContain(CREATIO_AUTH_ERROR_MESSAGE);
+	});
 });

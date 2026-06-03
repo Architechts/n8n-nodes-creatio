@@ -63,6 +63,8 @@ describe('getCreatioLegacySession', () => {
 		expect(session.cookieHeader).toContain('.ASPXAUTH=auth123');
 		expect(session.cookieHeader).toContain('BPMCSRF=csrf456');
 		expect(session.cookieHeader).toContain('UserType=General');
+		expect(session.cookieHeader).toContain('BPMLOADER=loader789');
+		expect(session.cookieHeader).toContain('BPMSESSIONID=sess000');
 	});
 
 	test('throws a friendly error when login returns Code != 0', async () => {
