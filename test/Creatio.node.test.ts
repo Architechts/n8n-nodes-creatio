@@ -82,6 +82,15 @@ describe('Creatio Node', () => {
 		);
 	});
 
+	test('throws a clear error for an unsupported operation', async () => {
+		const ctx = makeExecuteMock({
+			authentication: 'oAuth2',
+			operation: 'BOGUS',
+		});
+
+		await expect(creatioNode.execute.call(ctx)).rejects.toThrow('Unsupported operation: BOGUS');
+	});
+
 	test('continueOnFail emits an error item instead of throwing', async () => {
 		const ctx = makeExecuteMock({
 			authentication: 'oAuth2',

@@ -11,6 +11,7 @@ import {
 	IDataObject,
 	NodeConnectionType,
 	ILoadOptionsFunctions,
+	NodeOperationError,
 } from 'n8n-workflow';
 
 import { creatioApiRequest, CreatioAuthentication } from './GenericFunctions';
@@ -763,6 +764,12 @@ export class Creatio implements INodeType {
 						}
 						break;
 					}
+					default:
+						throw new NodeOperationError(
+							this.getNode(),
+							`Unsupported operation: ${operation}`,
+							{ itemIndex: i },
+						);
 				}
 
 				const appendRequest = this.getNodeParameter('appendRequest', i, false) as boolean;
