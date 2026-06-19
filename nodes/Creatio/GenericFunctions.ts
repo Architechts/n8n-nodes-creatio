@@ -16,6 +16,46 @@ import { NodeApiError } from 'n8n-workflow';
 
 export type CreatioAuthentication = 'oAuth2' | 'usernamePassword';
 
+// Canonical internal operation verbs the execute() switch dispatches on. These are stable and
+// version-independent; both the legacy (v1) flat `operation` param and the v2 `resource`+`operation`
+// pair resolve to one of these.
+export const CREATIO_CANONICAL_OPERATIONS = [
+	'GET',
+	'POST',
+	'PATCH',
+	'DELETE',
+	'METADATA',
+	'TABLES',
+	'UPLOAD',
+	'DOWNLOAD',
+] as const;
+
+// v2 conventional (resource, operation) -> canonical internal verb.
+export const CREATIO_V2_OPERATION_MAP: Record<string, Record<string, string>> = {
+	record: { get: 'GET', create: 'POST', update: 'PATCH', delete: 'DELETE' },
+	file: { upload: 'UPLOAD', download: 'DOWNLOAD' },
+	schema: { getFields: 'METADATA', listTables: 'TABLES' },
+};
+
+// Resolves the canonical internal operation verb from a node's version and parameters.
+// - typeVersion >= 2: map (resource, operation) via CREATIO_V2_OPERATION_MAP.
+// - typeVersion 1 (or any node that still stores an uppercase verb): pass the verb through.
+// Unknown values are returned unchanged so the execute() switch raises a clear error.
+export function resolveCreatioOperation(
+	typeVersion: number,
+	resource: string | undefined,
+	operation: string,
+): string {
+	if (typeVersion >= 2 && resource && CREATIO_V2_OPERATION_MAP[resource]?.[operation]) {
+		return CREATIO_V2_OPERATION_MAP[resource][operation];
+	}
+	const canonical = (operation ?? '').toUpperCase();
+	if ((CREATIO_CANONICAL_OPERATIONS as readonly string[]).includes(canonical)) {
+		return canonical;
+	}
+	return operation;
+}
+
 export const CREATIO_AUTH_ERROR_MESSAGE = 'Creatio authentication failed';
 export const CREATIO_AUTH_ERROR_DESCRIPTION =
 	"Your Creatio credentials appear to be invalid or expired. Check the credential's Client ID/Secret (OAuth2) or username/password, then reconnect.";

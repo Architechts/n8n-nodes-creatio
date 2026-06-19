@@ -29,6 +29,22 @@ Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes
 
 ### Usage
 
+#### Resource & Operation (node version 2+)
+
+New Creatio nodes follow n8n's conventional **Resource → Operation** structure. The stable parameter names are `resource` and `operation`:
+
+| Resource | Operation (`operation` value) | Equivalent in v1 |
+| --- | --- | --- |
+| `record` | `get` / `create` / `update` / `delete` | `GET` / `POST` / `PATCH` / `DELETE` |
+| `file` | `upload` / `download` | `UPLOAD` / `DOWNLOAD` |
+| `schema` | `getFields` / `listTables` | `METADATA` / `TABLES` |
+
+All other parameter names (`subpath`, `id`, `fields`, `select`, `top`, `filter`, `expand`, `useBody`, `body`, `appendRequest`, the file parameters, etc.) are unchanged and stable, so programmatic edits that set `parameters.<name>` by node id are predictable.
+
+**Backward compatibility:** workflows created before v2 are stored at `typeVersion: 1` and keep the flat uppercase `operation` values (`GET`, `POST`, `PATCH`, …). They continue to execute unchanged — the node maps both shapes to the same internal handlers. You do **not** need to migrate existing workflows.
+
+The operation descriptions below use the v1 names; the v2 mapping is in the table above.
+
 #### GET
 - Choose your Creatio subPath and target fields from the dropdown menus or add manually using an Expression
 - Use the optional Filter, Top and Expand filters
@@ -88,6 +104,21 @@ Set **Authentication** to **OAuth2** and create a *Creatio OAuth2 API* credentia
 - **Client ID** / **Client Secret** — from the OAuth client registered in Creatio
 
 n8n fetches and refreshes the access token automatically. Legacy username/password authentication remains available by setting **Authentication** to **Username & Password**.
+
+### Moving workflows between environments
+
+n8n stores a credential reference on each node as an `{ id, name }` pair (e.g. `creatioOAuth2Api: { id: "37", name: "Creatio (prod)" }`). The **id** is environment-specific, so a workflow exported from one n8n instance points at a credential id that does not exist on another.
+
+To push a workflow between environments without hand-editing ids:
+
+- **Match by name.** Create the Creatio credential with the **same display name** in each environment. When you import a workflow whose credential id is unknown, n8n resolves it by name if a credential of the same type and name exists.
+- The node does not hard-code any credential id; it only references the two credential **types** (`creatioOAuth2Api`, `creatioApi`). The id lives in the workflow JSON, not in the node.
+- When updating a workflow via the public API, send the credential block as `{ id, name }` for the target environment's credential.
+
+### Behavioral notes
+
+- **Empty (zero-row) GET results return 0 items.** A list `GET` that matches no rows outputs an empty array, not a `{}` placeholder. If you enable the node's **Always Output Data** setting, n8n core (not this node) re-adds a single empty item — that is the defined purpose of that setting and cannot be overridden from inside the node. For a truly empty downstream branch, leave **Always Output Data** off, or guard downstream on a real field (e.g. `Id`).
+- **PATCH sends explicit empty strings.** A field with an empty value (`fieldValue: ''`) is sent in the PATCH body and clears the column. Only fields that are genuinely not provided (`undefined`) are skipped. You no longer need to send a single space `' '` to clear a text column.
 
 ### Input
 

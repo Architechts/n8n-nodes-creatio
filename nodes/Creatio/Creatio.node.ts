@@ -20,6 +20,7 @@ import {
 	creatioApiRequest,
 	creatioFileUploadRequest,
 	creatioFileDownloadRequest,
+	resolveCreatioOperation,
 	CreatioAuthentication,
 } from './GenericFunctions';
 
@@ -89,7 +90,7 @@ export class Creatio implements INodeType {
 		name: 'creatio',
 		icon: 'file:Creatio.svg',
 		group: ['transform'],
-		version: 1,
+		version: [1, 2],
 		subtitle: '={{$parameter["operation"]}}',
 		description:
 			'Read and write records in Creatio CRM (contacts, accounts, leads, opportunities, custom objects) via OData. Use to look up, create, update, or delete Creatio CRM data.',
@@ -140,11 +141,144 @@ export class Creatio implements INodeType {
 			// ----------------------------------
 			//         GENERIC
 			// ----------------------------------
+			// Resource selector — only on typeVersion 2+. v1 nodes keep the flat `operation` param
+			// below for full backward compatibility.
+			{
+				displayName: 'Resource',
+				name: 'resource',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{
+						name: 'File',
+						value: 'file',
+						description: 'Upload or download a file attachment',
+					},
+					{
+						name: 'Record',
+						value: 'record',
+						description: 'Read or write records in a Creatio entity (OData)',
+					},
+					{
+						name: 'Schema',
+						value: 'schema',
+						description: 'Inspect entity tables and field names (OData metadata)',
+					},
+				],
+				default: 'record',
+				displayOptions: {
+					show: {
+						'@version': [2],
+					},
+				},
+			},
+			// v2 — Record operations
 			{
 				displayName: 'Operation',
 				name: 'operation',
 				type: 'options',
 				noDataExpression: true,
+				displayOptions: {
+					show: {
+						'@version': [2],
+						resource: ['record'],
+					},
+				},
+				options: [
+					{
+						name: 'Create',
+						value: 'create',
+						description: 'Create a record',
+						action: 'Create a record',
+					},
+					{
+						name: 'Delete',
+						value: 'delete',
+						description: 'Delete a record permanently',
+						action: 'Delete a record',
+					},
+					{
+						name: 'Get',
+						value: 'get',
+						description: 'Get one or more records',
+						action: 'Get one or more records',
+					},
+					{
+						name: 'Update',
+						value: 'update',
+						description: 'Update a record',
+						action: 'Update a record',
+					},
+				],
+				default: 'get',
+			},
+			// v2 — File operations
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: {
+					show: {
+						'@version': [2],
+						resource: ['file'],
+					},
+				},
+				options: [
+					{
+						name: 'Download',
+						value: 'download',
+						description: 'Download a file from a Creatio file entity by its file ID',
+						action: 'Download a file',
+					},
+					{
+						name: 'Upload',
+						value: 'upload',
+						description: 'Upload a binary file to a Creatio file entity (e.g. ContactFile)',
+						action: 'Upload a file',
+					},
+				],
+				default: 'upload',
+			},
+			// v2 — Schema operations
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: {
+					show: {
+						'@version': [2],
+						resource: ['schema'],
+					},
+				},
+				options: [
+					{
+						name: 'Get Fields',
+						value: 'getFields',
+						description: 'Get the field names for a table',
+						action: 'Get the field names for a table',
+					},
+					{
+						name: 'List Tables',
+						value: 'listTables',
+						description: 'List the available entity tables',
+						action: 'List the available tables',
+					},
+				],
+				default: 'getFields',
+			},
+			// v1 (legacy) — flat operation list. Retained verbatim so existing workflows keep working.
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: {
+					show: {
+						'@version': [1],
+					},
+				},
 				options: [
 					{
 						name: 'DELETE',
@@ -214,7 +348,7 @@ export class Creatio implements INodeType {
 				},
 				displayOptions: {
 					show: {
-						operation: ['GET'],
+						operation: ['GET', 'get'],
 					},
 				},
 			},
@@ -230,7 +364,7 @@ export class Creatio implements INodeType {
 				},
 				displayOptions: {
 					show: {
-						operation: ['GET'],
+						operation: ['GET', 'get'],
 					},
 				},
 			},
@@ -242,7 +376,7 @@ export class Creatio implements INodeType {
 				description: 'Number of records to return',
 				displayOptions: {
 					show: {
-						operation: ['GET'],
+						operation: ['GET', 'get'],
 					},
 				},
 			},
@@ -254,7 +388,7 @@ export class Creatio implements INodeType {
 				description: 'A formula used to filter records. The formula will be evaluated for each record, and if the result is not 0, false, "", NaN, [], or #Error! the record will be included in the response.',
 				displayOptions: {
 					show: {
-						operation: ['GET'],
+						operation: ['GET', 'get'],
 					},
 				},
 				placeholder: "NOT({Name} = '')"
@@ -267,7 +401,7 @@ export class Creatio implements INodeType {
 				description: 'Comma-separated list of related entities to expand',
 				displayOptions: {
 					show: {
-						operation: ['GET'],
+						operation: ['GET', 'get'],
 					},
 				},
 			},
@@ -281,7 +415,7 @@ export class Creatio implements INodeType {
 				default: false,
 				displayOptions: {
 					show: {
-						operation: ['GET'],
+						operation: ['GET', 'get'],
 					},
 				},
 			},
@@ -302,7 +436,7 @@ export class Creatio implements INodeType {
 				},
 				displayOptions: {
 					show: {
-						operation: ['PATCH'],
+						operation: ['PATCH', 'update'],
 					},
 				},
 			},
@@ -312,7 +446,7 @@ export class Creatio implements INodeType {
 				type: 'string',
 				displayOptions: {
 					show: {
-						operation: ['PATCH'],
+						operation: ['PATCH', 'update'],
 					},
 				},
 				default: '',
@@ -341,7 +475,7 @@ export class Creatio implements INodeType {
 				displayOptions: {
 					show: {
 						//updateAllFields: [false],
-						operation: ['PATCH'],
+						operation: ['PATCH', 'update'],
 					},
 				},
 				default: {},
@@ -385,7 +519,7 @@ export class Creatio implements INodeType {
 				default: false,
 				displayOptions: {
 					show: {
-						operation: ['PATCH'],
+						operation: ['PATCH', 'update'],
 					},
 				},
 			},
@@ -398,7 +532,7 @@ export class Creatio implements INodeType {
 				displayOptions: {
 					show: {
 						useBody: [true],
-						operation: ['PATCH'],
+						operation: ['PATCH', 'update'],
 					},
 				},
 			},
@@ -412,7 +546,7 @@ export class Creatio implements INodeType {
 				default: false,
 				displayOptions: {
 					show: {
-						operation: ['PATCH'],
+						operation: ['PATCH', 'update'],
 					},
 				},
 			},
@@ -432,7 +566,7 @@ export class Creatio implements INodeType {
 				},
 				displayOptions: {
 					show: {
-						operation: ['DELETE'],
+						operation: ['DELETE', 'delete'],
 					},
 				},
 			},
@@ -442,7 +576,7 @@ export class Creatio implements INodeType {
 				type: 'string',
 				displayOptions: {
 					show: {
-						operation: ['DELETE'],
+						operation: ['DELETE', 'delete'],
 					},
 				},
 				default: '',
@@ -466,7 +600,7 @@ export class Creatio implements INodeType {
 				},
 				displayOptions: {
 					show: {
-						operation: ['POST'],
+						operation: ['POST', 'create'],
 					},
 				},
 			},
@@ -480,7 +614,7 @@ export class Creatio implements INodeType {
 				displayOptions: {
 					show: {
 						//updateAllFields: [false],
-						operation: ['POST'],
+						operation: ['POST', 'create'],
 					},
 				},
 				default: {},
@@ -524,7 +658,7 @@ export class Creatio implements INodeType {
 				default: false,
 				displayOptions: {
 					show: {
-						operation: ['POST'],
+						operation: ['POST', 'create'],
 					},
 				},
 			},
@@ -537,7 +671,7 @@ export class Creatio implements INodeType {
 				displayOptions: {
 					show: {
 						useBody: [true],
-						operation: ['POST'],
+						operation: ['POST', 'create'],
 					},
 				},
 			},
@@ -551,7 +685,7 @@ export class Creatio implements INodeType {
 				default: false,
 				displayOptions: {
 					show: {
-						operation: ['POST'],
+						operation: ['POST', 'create'],
 					},
 				},
 			},
@@ -572,7 +706,7 @@ export class Creatio implements INodeType {
 				},
 				displayOptions: {
 					show: {
-						operation: ['METADATA'],
+						operation: ['METADATA', 'getFields'],
 					},
 				},
 			},
@@ -589,7 +723,7 @@ export class Creatio implements INodeType {
 				description: 'Name of the binary property on the input item that holds the file',
 				displayOptions: {
 					show: {
-						operation: ['UPLOAD'],
+						operation: ['UPLOAD', 'upload'],
 					},
 				},
 			},
@@ -603,7 +737,7 @@ export class Creatio implements INodeType {
 				description: 'The Creatio file entity schema, e.g. ContactFile, AccountFile or SysFile',
 				displayOptions: {
 					show: {
-						operation: ['UPLOAD'],
+						operation: ['UPLOAD', 'upload'],
 					},
 				},
 			},
@@ -616,7 +750,7 @@ export class Creatio implements INodeType {
 				description: 'The file data column on the file entity (almost always "Data")',
 				displayOptions: {
 					show: {
-						operation: ['UPLOAD'],
+						operation: ['UPLOAD', 'upload'],
 					},
 				},
 			},
@@ -630,7 +764,7 @@ export class Creatio implements INodeType {
 				description: 'FK column linking the file to its parent record, e.g. Contact or RecordId',
 				displayOptions: {
 					show: {
-						operation: ['UPLOAD'],
+						operation: ['UPLOAD', 'upload'],
 					},
 				},
 			},
@@ -643,7 +777,7 @@ export class Creatio implements INodeType {
 				description: 'GUID of the parent record the file attaches to',
 				displayOptions: {
 					show: {
-						operation: ['UPLOAD'],
+						operation: ['UPLOAD', 'upload'],
 					},
 				},
 			},
@@ -655,7 +789,7 @@ export class Creatio implements INodeType {
 				default: {},
 				displayOptions: {
 					show: {
-						operation: ['UPLOAD'],
+						operation: ['UPLOAD', 'upload'],
 					},
 				},
 				options: [
@@ -704,7 +838,7 @@ export class Creatio implements INodeType {
 				description: 'The Creatio file entity schema, e.g. ContactFile, AccountFile or SysFile',
 				displayOptions: {
 					show: {
-						operation: ['DOWNLOAD'],
+						operation: ['DOWNLOAD', 'download'],
 					},
 				},
 			},
@@ -717,7 +851,7 @@ export class Creatio implements INodeType {
 				description: 'GUID of the file record to download',
 				displayOptions: {
 					show: {
-						operation: ['DOWNLOAD'],
+						operation: ['DOWNLOAD', 'download'],
 					},
 				},
 			},
@@ -730,7 +864,7 @@ export class Creatio implements INodeType {
 				description: 'Name of the binary property to write the downloaded file to',
 				displayOptions: {
 					show: {
-						operation: ['DOWNLOAD'],
+						operation: ['DOWNLOAD', 'download'],
 					},
 				},
 			},
@@ -742,7 +876,7 @@ export class Creatio implements INodeType {
 				default: {},
 				displayOptions: {
 					show: {
-						operation: ['DOWNLOAD'],
+						operation: ['DOWNLOAD', 'download'],
 					},
 				},
 				options: [
@@ -789,7 +923,13 @@ export class Creatio implements INodeType {
 					i,
 					'oAuth2',
 				) as CreatioAuthentication;
-				const operation = this.getNodeParameter('operation', i) as string;
+				const typeVersion = this.getNode().typeVersion ?? 1;
+				const resource =
+					typeVersion >= 2 ? (this.getNodeParameter('resource', i, '') as string) : '';
+				const rawOperation = this.getNodeParameter('operation', i) as string;
+				// Normalize (resource, operation) to a stable canonical verb so the rest of execute()
+				// — and existing v1 workflows storing uppercase verbs — keep working unchanged.
+				const operation = resolveCreatioOperation(typeVersion, resource, rawOperation);
 				let response: any;
 
 				switch (operation) {
@@ -826,8 +966,12 @@ export class Creatio implements INodeType {
 						response = await creatioApiRequest.call(this, authentication, 'GET', endpoint, undefined, {
 							itemIndex: i,
 						});
-						if (response && response.value) {
+						// A list GET must always normalize to an array so zero rows emit zero items
+						// (never a `{}`/`''` placeholder). A single-entity GET stays an object.
+						if (response && response.value !== undefined) {
 							response = response.value;
+						} else if (response === undefined || response === null || response === '') {
+							response = [];
 						}
 						break;
 					}
@@ -919,11 +1063,9 @@ export class Creatio implements INodeType {
 							};
 							if (fields.field) {
 								for (const fieldData of fields.field) {
-									if (
-										fieldData.fieldValue !== '' &&
-										fieldData.fieldValue !== null &&
-										fieldData.fieldValue !== undefined
-									) {
+									// Send an explicit empty string ('') so the column is cleared.
+									// Only skip a field that was never provided (undefined) or has no name.
+									if (fieldData.fieldName && fieldData.fieldValue !== undefined) {
 										requestBody[fieldData.fieldName] = fieldData.fieldValue;
 									}
 								}

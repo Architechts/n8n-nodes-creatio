@@ -1,7 +1,7 @@
 import { Creatio } from '../nodes/Creatio/Creatio.node';
 import { IExecuteFunctions } from 'n8n-workflow';
 
-function makeExecuteMock(params: Record<string, any>) {
+function makeExecuteMock(params: Record<string, any>, typeVersion = 1) {
 	const getNodeParameter = jest.fn(
 		(name: string, _i?: number, fallback?: any) =>
 			params[name] !== undefined ? params[name] : fallback,
@@ -12,7 +12,7 @@ function makeExecuteMock(params: Record<string, any>) {
 		continueOnFail: jest.fn().mockReturnValue(false),
 		getNode: jest
 			.fn()
-			.mockReturnValue({ name: 'Creatio', type: 'creatio', typeVersion: 1, parameters: {} }),
+			.mockReturnValue({ name: 'Creatio', type: 'creatio', typeVersion, parameters: {} }),
 		getCredentials: jest.fn().mockResolvedValue({ creatioUrl: 'https://test.creatio.com' }),
 		helpers: {
 			httpRequest: jest.fn(),
@@ -61,7 +61,7 @@ describe('Creatio Node', () => {
 		);
 	});
 
-	test('filters empty fields in a PATCH operation', async () => {
+	test('sends an explicit empty-string field value in a PATCH so the column is cleared', async () => {
 		const ctx = makeExecuteMock({
 			authentication: 'oAuth2',
 			operation: 'PATCH',
@@ -71,7 +71,7 @@ describe('Creatio Node', () => {
 			fields: {
 				field: [
 					{ fieldName: 'Name', fieldValue: 'John Doe' },
-					{ fieldName: 'Email', fieldValue: '' },
+					{ fieldName: 'DenLastError', fieldValue: '' },
 				],
 			},
 			appendRequest: false,
@@ -84,9 +84,153 @@ describe('Creatio Node', () => {
 			'creatioOAuth2Api',
 			expect.objectContaining({
 				method: 'PATCH',
-				body: { Name: 'John Doe' },
+				body: { Name: 'John Doe', DenLastError: '' },
 			}),
 		);
+	});
+
+	test('emits zero items (not a {} placeholder) when a GET list returns zero rows', async () => {
+		const ctx = makeExecuteMock({
+			authentication: 'oAuth2',
+			operation: 'GET',
+			subpath: 'Contact',
+			select: [],
+			top: 10,
+			filter: "Name eq 'no-such-name'",
+			expand: '',
+			appendRequest: false,
+		});
+		(ctx.helpers.httpRequestWithAuthentication as jest.Mock).mockResolvedValue({ value: [] });
+
+		const result = await creatioNode.execute.call(ctx);
+
+		expect(result).toEqual([[]]);
+	});
+
+	test('emits zero items when a GET returns an empty/no-content body', async () => {
+		const ctx = makeExecuteMock({
+			authentication: 'oAuth2',
+			operation: 'GET',
+			subpath: 'Contact',
+			select: [],
+			top: 10,
+			filter: '',
+			expand: '',
+			appendRequest: false,
+		});
+		(ctx.helpers.httpRequestWithAuthentication as jest.Mock).mockResolvedValue('');
+
+		const result = await creatioNode.execute.call(ctx);
+
+		expect(result).toEqual([[]]);
+	});
+
+	test('v2: resource "record" + operation "get" maps to the same GET request as v1', async () => {
+		const ctx = makeExecuteMock(
+			{
+				authentication: 'oAuth2',
+				resource: 'record',
+				operation: 'get',
+				subpath: 'Contact',
+				select: ['Name', 'Email'],
+				top: 10,
+				filter: '',
+				expand: '',
+				appendRequest: false,
+			},
+			2,
+		);
+		(ctx.helpers.httpRequestWithAuthentication as jest.Mock).mockResolvedValue({
+			value: [{ Name: 'Test' }],
+		});
+
+		await creatioNode.execute.call(ctx);
+
+		expect(ctx.helpers.httpRequestWithAuthentication).toHaveBeenCalledWith(
+			'creatioOAuth2Api',
+			expect.objectContaining({
+				method: 'GET',
+				url: 'https://test.creatio.com/0/odata/Contact?$select=Name%2CEmail&$top=10',
+			}),
+		);
+	});
+
+	test('v2: resource "record" + operation "update" maps to a PATCH request', async () => {
+		const ctx = makeExecuteMock(
+			{
+				authentication: 'oAuth2',
+				resource: 'record',
+				operation: 'update',
+				subpath: 'Contact',
+				id: '123',
+				useBody: false,
+				fields: { field: [{ fieldName: 'Name', fieldValue: 'Jane' }] },
+				appendRequest: false,
+			},
+			2,
+		);
+		(ctx.helpers.httpRequestWithAuthentication as jest.Mock).mockResolvedValue({});
+
+		await creatioNode.execute.call(ctx);
+
+		expect(ctx.helpers.httpRequestWithAuthentication).toHaveBeenCalledWith(
+			'creatioOAuth2Api',
+			expect.objectContaining({
+				method: 'PATCH',
+				url: 'https://test.creatio.com/0/odata/Contact(123)',
+				body: { Name: 'Jane' },
+			}),
+		);
+	});
+
+	test('v2: resource "file" + operation "download" maps to a FileService download', async () => {
+		const ctx = makeExecuteMock(
+			{
+				authentication: 'oAuth2',
+				resource: 'file',
+				operation: 'download',
+				entitySchemaName: 'ContactFile',
+				fileId: 'FILE-GUID',
+				binaryPropertyName: 'data',
+				downloadOptions: {},
+			},
+			2,
+		);
+		(ctx.helpers.httpRequestWithAuthentication as jest.Mock).mockResolvedValue({
+			body: Buffer.from('hello'),
+			headers: { 'content-type': 'text/plain' },
+		});
+
+		const result = await creatioNode.execute.call(ctx);
+
+		const opts = (ctx.helpers.httpRequestWithAuthentication as jest.Mock).mock.calls[0][1];
+		expect(opts.url).toBe('https://test.creatio.com/0/rest/FileService/Download/ContactFile/FILE-GUID');
+		expect(result[0][0].binary?.data).toBeDefined();
+	});
+
+	test('v1 back-compat: legacy uppercase operation "GET" still executes on a v1 node', async () => {
+		const ctx = makeExecuteMock({
+			authentication: 'oAuth2',
+			operation: 'GET',
+			subpath: 'Contact',
+			select: [],
+			top: 5,
+			filter: '',
+			expand: '',
+			appendRequest: false,
+		}); // typeVersion defaults to 1, and no `resource` param
+		(ctx.helpers.httpRequestWithAuthentication as jest.Mock).mockResolvedValue({ value: [] });
+
+		const result = await creatioNode.execute.call(ctx);
+
+		expect(ctx.helpers.httpRequestWithAuthentication).toHaveBeenCalledWith(
+			'creatioOAuth2Api',
+			expect.objectContaining({
+				method: 'GET',
+				url: 'https://test.creatio.com/0/odata/Contact?$top=5',
+			}),
+		);
+		expect(result).toEqual([[]]);
 	});
 
 	test('throws a clear error for an unsupported operation', async () => {
